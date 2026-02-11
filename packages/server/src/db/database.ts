@@ -162,7 +162,7 @@ export function initDatabase(dbPath?: string) {
         SET ${socketCol} = NULL, updated_at = unixepoch()
         WHERE id = ?
       `);
-      stmt.run(id, id);
+      stmt.run(id);
     },
 
     /**
