@@ -39,11 +39,7 @@ import {
   applyEffects,
 } from '../rules/effects.js';
 import { getCard } from '../cards/index.js';
-
-// Import validation and phases - these exist or will exist shortly
-// If they don't exist yet, the reducer will fail at runtime with clear errors
-// import { validateAction } from '../rules/validation.js';
-// import { endTurn } from './phases.js';
+import { processEventsPhase, processReplenishPhase } from './phases.js';
 
 /**
  * Apply an action to the game state
@@ -622,9 +618,6 @@ function handleEndTurn(state: GameState, action: EndTurnAction): ActionResult {
     newState.currentTurn++;
   }
 
-  // Reset to events phase for next turn
-  newState.turnPhase = 'events';
-
   events.push({
     type: 'turn_ended',
     data: {
@@ -639,13 +632,23 @@ function handleEndTurn(state: GameState, action: EndTurnAction): ActionResult {
     data: {
       playerId: newState.activePlayerId,
       turn: newState.currentTurn,
-      phase: newState.turnPhase,
+      phase: 'events',
     },
   });
 
+  // Auto-process events phase
+  newState.turnPhase = 'events';
+  const eventsResult = processEventsPhase(newState);
+  events.push(...eventsResult.events);
+
+  // Auto-process replenish phase
+  const replenishResult = processReplenishPhase(eventsResult.state);
+  events.push(...replenishResult.events);
+
+  // Now in actions phase
   return {
     success: true,
-    newState,
+    newState: replenishResult.state,
     events,
   };
 }
@@ -781,7 +784,6 @@ function handleConfirmCamps(
 
   // Start the game
   newState.phase = 'playing';
-  newState.turnPhase = 'replenish';
   newState.currentTurn = 1;
 
   events.push({
@@ -789,13 +791,23 @@ function handleConfirmCamps(
     data: {
       playerId: newState.activePlayerId,
       turn: newState.currentTurn,
-      phase: newState.turnPhase,
+      phase: 'events',
     },
   });
 
+  // Auto-process events phase (no events on turn 1, but still advance queue)
+  newState.turnPhase = 'events';
+  const eventsResult = processEventsPhase(newState);
+  events.push(...eventsResult.events);
+
+  // Auto-process replenish phase (draw card, set water to 3, ready cards)
+  const replenishResult = processReplenishPhase(eventsResult.state);
+  events.push(...replenishResult.events);
+
+  // Now in actions phase, player can take actions
   return {
     success: true,
-    newState,
+    newState: replenishResult.state,
     events,
   };
 }
