@@ -185,12 +185,8 @@ export const camps: CampCard[] = [
             target: 'any_friendly',
             amount: 1,
           },
-          {
-            type: 'ready',
-            target: 'same',
-          },
         ],
-        description: 'Restore and ready a friendly card.',
+        description: 'Restore a friendly card.',
       },
     ],
     flavorText: 'Healing what the wasteland breaks.',
@@ -256,11 +252,11 @@ export const camps: CampCard[] = [
         effects: [
           {
             type: 'punk',
-            target: 'any_column',
+            target: 'column',
           },
           {
             type: 'punk',
-            target: 'any_column',
+            target: 'column',
           },
         ],
         description: 'Put 2 punks into play.',
