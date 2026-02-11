@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGameStore } from '../stores/gameStore';
+import { useGameStore, useGameMode } from '../stores/gameStore';
 import { getCard, type CardId, type CampCard } from '@radlands/core';
 import './DraftScreen.css';
 
@@ -12,8 +12,10 @@ export function DraftScreen() {
   const localPlayerId = useGameStore((state) => state.localPlayerId);
   const performAction = useGameStore((state) => state.performAction);
   const setLocalPlayer = useGameStore((state) => state.setLocalPlayer);
+  const gameMode = useGameMode();
 
   const [showPassScreen, setShowPassScreen] = useState(false);
+  const isOnline = gameMode === 'online';
 
   if (!gameState || !localPlayerId) return null;
 
@@ -57,8 +59,9 @@ export function DraftScreen() {
       playerId: localPlayerId,
     });
 
-    if (success && !opponentDraftComplete) {
-      // Show pass screen to switch to other player
+    // In online mode, don't show pass screen - just wait for opponent
+    // In local mode, show pass screen to switch to other player
+    if (success && !opponentDraftComplete && !isOnline) {
       setShowPassScreen(true);
     }
     // If both players are done, the game will transition to playing phase
@@ -72,6 +75,9 @@ export function DraftScreen() {
     }
   };
 
+  // In online mode, show waiting screen after confirming
+  const showWaitingForOpponent = isOnline && isDraftComplete && !opponentDraftComplete;
+
   return (
     <div className="draft-screen screen">
       <AnimatePresence mode="wait">
@@ -81,6 +87,8 @@ export function DraftScreen() {
             playerName={opponent.name}
             onContinue={handlePassDevice}
           />
+        ) : showWaitingForOpponent ? (
+          <WaitingForOpponentOverlay key="waiting" />
         ) : (
           <motion.div
             key="draft"
@@ -224,6 +232,31 @@ function PassDeviceOverlay({ playerName, onContinue }: PassDeviceOverlayProps) {
         >
           Continue
         </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * Waiting for opponent overlay (online mode)
+ */
+function WaitingForOpponentOverlay() {
+  return (
+    <motion.div
+      className="pass-device-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="pass-device-content"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
+        <h2 className="mb-lg">Camps Selected</h2>
+        <p className="text-muted mb-xl">Waiting for opponent to select camps...</p>
+        <div className="waiting-spinner" />
       </motion.div>
     </motion.div>
   );

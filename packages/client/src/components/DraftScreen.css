@@ -159,3 +159,18 @@
 .pass-device-content button {
   min-width: 200px;
 }
+
+/* Waiting spinner */
+.waiting-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border: 3px solid var(--color-metal);
+  border-top-color: var(--color-rust-light);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

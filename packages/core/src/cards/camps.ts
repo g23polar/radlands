@@ -153,6 +153,141 @@ export const camps: CampCard[] = [
     ],
     flavorText: 'Building soldiers from scraps.',
   },
+  {
+    id: 'camp_scrapyard',
+    name: 'Scrapyard',
+    type: 'camp',
+    abilities: [
+      {
+        cost: 2,
+        effects: [
+          {
+            type: 'draw',
+            target: 'player',
+            amount: 2,
+          },
+        ],
+        description: 'Draw 2 cards.',
+      },
+    ],
+    flavorText: 'One person\'s trash is another\'s treasure.',
+  },
+  {
+    id: 'camp_infirmary',
+    name: 'Infirmary',
+    type: 'camp',
+    abilities: [
+      {
+        cost: 2,
+        effects: [
+          {
+            type: 'restore',
+            target: 'any_friendly',
+            amount: 1,
+          },
+          {
+            type: 'ready',
+            target: 'same',
+          },
+        ],
+        description: 'Restore and ready a friendly card.',
+      },
+    ],
+    flavorText: 'Healing what the wasteland breaks.',
+  },
+  {
+    id: 'camp_watchtower',
+    name: 'Watchtower',
+    type: 'camp',
+    traits: ['Protected'],
+    abilities: [],
+    flavorText: 'Vigilance is survival.',
+  },
+  {
+    id: 'camp_trading_post',
+    name: 'Trading Post',
+    type: 'camp',
+    abilities: [
+      {
+        cost: 0,
+        effects: [
+          {
+            type: 'discard',
+            target: 'player',
+            amount: 1,
+          },
+          {
+            type: 'draw',
+            target: 'player',
+            amount: 2,
+          },
+        ],
+        description: 'Discard a card, then draw 2 cards.',
+      },
+    ],
+    flavorText: 'Everything has its price.',
+  },
+  {
+    id: 'camp_generator',
+    name: 'Generator',
+    type: 'camp',
+    abilities: [
+      {
+        cost: 1,
+        effects: [
+          {
+            type: 'water',
+            target: 'player',
+            amount: 2,
+          },
+        ],
+        description: 'Gain 2 water.',
+      },
+    ],
+    flavorText: 'Power in the wasteland.',
+  },
+  {
+    id: 'camp_barracks',
+    name: 'Barracks',
+    type: 'camp',
+    abilities: [
+      {
+        cost: 2,
+        effects: [
+          {
+            type: 'punk',
+            target: 'any_column',
+          },
+          {
+            type: 'punk',
+            target: 'any_column',
+          },
+        ],
+        description: 'Put 2 punks into play.',
+      },
+    ],
+    flavorText: 'Soldiers ready for battle.',
+  },
+  {
+    id: 'camp_fortress',
+    name: 'Fortress',
+    type: 'camp',
+    traits: ['Shielded'],
+    abilities: [
+      {
+        cost: 1,
+        effects: [
+          {
+            type: 'damage',
+            target: 'unprotected_enemy',
+            amount: 1,
+          },
+        ],
+        description: 'Damage an unprotected enemy card.',
+      },
+    ],
+    flavorText: 'Walls of steel and resolve.',
+  },
 ];
 
 /** Get a camp by ID */
