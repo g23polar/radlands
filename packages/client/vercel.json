@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @radlands/core build && pnpm --filter @radlands/client build",
+  "outputDirectory": "dist",
+  "framework": "vite"
+}

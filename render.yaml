@@ -1,0 +1,14 @@
+# Render Blueprint - deploys server with built client
+services:
+  - type: web
+    name: radlands
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm --filter @radlands/core build && pnpm --filter @radlands/client build
+    startCommand: pnpm --filter @radlands/server start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: CLIENT_URL
+        value: "*"
+    healthCheckPath: /health
