@@ -1,0 +1,161 @@
+.draft-screen {
+  padding: var(--spacing-2xl);
+}
+
+.draft-content {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.draft-header {
+  text-align: center;
+  width: 100%;
+}
+
+.draft-header h2 {
+  color: var(--color-rust-light);
+  margin-bottom: var(--spacing-sm);
+}
+
+.camp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+  width: 100%;
+  max-width: 900px;
+}
+
+.camp-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-height: 200px;
+  cursor: pointer;
+  position: relative;
+}
+
+.camp-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.camp-card.disabled:hover {
+  transform: none;
+  border-color: var(--color-metal);
+  box-shadow: var(--shadow-md);
+}
+
+.camp-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.camp-card-name {
+  font-size: var(--font-size-lg);
+  color: var(--color-rust-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.camp-card-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.trait-badge {
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-bg-dark);
+  border: 1px solid var(--color-rust);
+  border-radius: var(--border-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-rust-light);
+}
+
+.camp-card-abilities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex-grow: 1;
+}
+
+.ability {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius-sm);
+  border-left: 2px solid var(--color-rust);
+}
+
+.ability-cost {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.ability-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.camp-card-flavor {
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-metal);
+}
+
+.confirm-button {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+}
+
+/* Pass Device Overlay */
+.pass-device-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+}
+
+.pass-device-content {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  background: var(--color-bg-medium);
+  border: var(--border-width) solid var(--color-rust);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(205, 133, 63, 0.3);
+  min-width: 400px;
+}
+
+.pass-device-content h2 {
+  color: var(--color-rust-light);
+}
+
+.pass-device-content p {
+  font-size: var(--font-size-xl);
+  letter-spacing: 1px;
+}
+
+.pass-device-content button {
+  min-width: 200px;
+}

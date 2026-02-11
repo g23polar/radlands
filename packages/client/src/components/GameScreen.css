@@ -1,0 +1,206 @@
+.game-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.game-board-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.game-hud > * {
+  pointer-events: auto;
+}
+
+/* Top HUD Bar */
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(26, 26, 46, 0) 100%);
+  backdrop-filter: blur(4px);
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: rgba(15, 52, 96, 0.8);
+  border: var(--border-width) solid var(--color-rust);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.player-name {
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  color: var(--color-rust-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.resource-bar,
+.cards-count {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.resource-label,
+.cards-label,
+.turn-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.resource-value,
+.cards-value {
+  font-size: var(--font-size-xl);
+  font-weight: bold;
+  color: var(--color-text-primary);
+}
+
+.resource-value {
+  color: var(--color-warning);
+}
+
+.phase-indicator {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.phase-badge {
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: rgba(74, 74, 74, 0.9);
+  border: var(--border-width) solid var(--color-metal-light);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  box-shadow: var(--shadow-md);
+}
+
+.phase-badge.active {
+  background: rgba(139, 69, 19, 0.9);
+  border-color: var(--color-rust-light);
+  color: var(--color-rust-light);
+  box-shadow: var(--shadow-lg), 0 0 12px rgba(205, 133, 63, 0.4);
+}
+
+.phase-badge.waiting {
+  color: var(--color-text-muted);
+}
+
+.turn-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: rgba(15, 52, 96, 0.8);
+  border: var(--border-width) solid var(--color-metal);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.turn-value {
+  font-size: var(--font-size-2xl);
+  font-weight: bold;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+/* Bottom HUD Bar */
+.hud-bottom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-xl);
+  background: linear-gradient(0deg, rgba(26, 26, 46, 0.95) 0%, rgba(26, 26, 46, 0) 100%);
+  backdrop-filter: blur(4px);
+  min-height: 120px;
+}
+
+.end-turn-button {
+  min-width: 200px;
+  padding: var(--spacing-lg) var(--spacing-2xl);
+  font-size: var(--font-size-xl);
+  box-shadow: var(--shadow-lg), 0 0 16px rgba(205, 133, 63, 0.3);
+}
+
+.waiting-message,
+.phase-message {
+  font-size: var(--font-size-lg);
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: rgba(15, 52, 96, 0.8);
+  border: var(--border-width) solid var(--color-metal);
+  border-radius: var(--border-radius-md);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.phase-message {
+  color: var(--color-text-secondary);
+  border-color: var(--color-rust);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .hud-top {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .phase-indicator {
+    width: 100%;
+  }
+
+  .player-info {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .hud-top,
+  .hud-bottom {
+    padding: var(--spacing-md);
+  }
+
+  .player-name {
+    font-size: var(--font-size-base);
+  }
+
+  .phase-badge {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-sm) var(--spacing-lg);
+  }
+
+  .end-turn-button {
+    min-width: 150px;
+    font-size: var(--font-size-base);
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "radlands",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @radlands/client dev",
+    "dev:server": "pnpm --filter @radlands/server dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:core": "pnpm --filter @radlands/core test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

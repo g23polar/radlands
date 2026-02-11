@@ -1,0 +1,284 @@
+/**
+ * Global styles for Radlands
+ * Post-apocalyptic theme: Dark, gritty, worn textures
+ */
+
+:root {
+  /* Color Palette - Post-apocalyptic wasteland */
+  --color-bg-dark: #1a1a2e;
+  --color-bg-medium: #16213e;
+  --color-bg-light: #0f3460;
+
+  /* Rust/metal accents */
+  --color-rust: #8B4513;
+  --color-rust-light: #CD853F;
+  --color-rust-dark: #5C2E0A;
+  --color-metal: #4a4a4a;
+  --color-metal-light: #6a6a6a;
+
+  /* UI colors */
+  --color-text-primary: #e4e4e4;
+  --color-text-secondary: #b0b0b0;
+  --color-text-muted: #808080;
+  --color-danger: #d32f2f;
+  --color-success: #388e3c;
+  --color-warning: #f57c00;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* Typography */
+  --font-family: 'Courier New', monospace;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 36px;
+  --font-size-3xl: 48px;
+
+  /* Borders */
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-width: 2px;
+
+  /* Shadows - Subtle depth */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.7);
+
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+  --transition-slow: 400ms ease-in-out;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-dark);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: bold;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+h3 {
+  font-size: var(--font-size-xl);
+  font-weight: bold;
+}
+
+p {
+  line-height: 1.6;
+}
+
+/* Buttons - Rusted metal look */
+button {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: linear-gradient(180deg, var(--color-rust) 0%, var(--color-rust-dark) 100%);
+  color: var(--color-text-primary);
+  border: var(--border-width) solid var(--color-rust-light);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left var(--transition-normal);
+}
+
+button:hover {
+  background: linear-gradient(180deg, var(--color-rust-light) 0%, var(--color-rust) 100%);
+  border-color: var(--color-rust-light);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+button:hover::before {
+  left: 100%;
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+button:disabled {
+  background: var(--color-metal);
+  border-color: var(--color-metal-light);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+
+button:disabled::before {
+  display: none;
+}
+
+/* Input fields */
+input[type='text'],
+input[type='email'],
+input[type='password'] {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  padding: var(--spacing-md);
+  background: var(--color-bg-medium);
+  color: var(--color-text-primary);
+  border: var(--border-width) solid var(--color-metal);
+  border-radius: var(--border-radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  width: 100%;
+}
+
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='password']:focus {
+  border-color: var(--color-rust-light);
+  box-shadow: 0 0 0 2px rgba(205, 133, 63, 0.2);
+}
+
+input[type='text']::placeholder,
+input[type='email']::placeholder,
+input[type='password']::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Utility classes */
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.mb-sm {
+  margin-bottom: var(--spacing-sm);
+}
+
+.mb-md {
+  margin-bottom: var(--spacing-md);
+}
+
+.mb-lg {
+  margin-bottom: var(--spacing-lg);
+}
+
+.mb-xl {
+  margin-bottom: var(--spacing-xl);
+}
+
+.mt-sm {
+  margin-top: var(--spacing-sm);
+}
+
+.mt-md {
+  margin-top: var(--spacing-md);
+}
+
+.mt-lg {
+  margin-top: var(--spacing-lg);
+}
+
+/* Screen container */
+.screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  background: var(--color-bg-dark);
+}
+
+/* Card styles for draft */
+.card {
+  background: linear-gradient(135deg, var(--color-bg-medium) 0%, var(--color-bg-light) 100%);
+  border: var(--border-width) solid var(--color-metal);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-rust-light);
+  box-shadow: var(--shadow-lg), 0 0 8px rgba(205, 133, 63, 0.3);
+  transform: translateY(-2px);
+}
+
+.card.selected {
+  border-color: var(--color-rust-light);
+  box-shadow: 0 0 12px rgba(205, 133, 63, 0.5);
+  background: linear-gradient(135deg, var(--color-bg-light) 0%, var(--color-bg-medium) 100%);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-metal);
+  border-radius: var(--border-radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-metal-light);
+}
