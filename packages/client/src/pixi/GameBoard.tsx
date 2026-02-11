@@ -135,8 +135,6 @@ function renderGame(
   // Draw local player area (bottom)
   drawPlayerArea(app, localPlayer, gameState, 'bottom', centerX, app.screen.height - 280, selectedCardId, selectCard);
 
-  // Draw local player hand
-  drawHand(app, localPlayer, gameState, centerX, app.screen.height - 80, selectedCardId, selectCard);
 }
 
 function renderLoadingScreen(app: Application) {
@@ -336,29 +334,6 @@ function drawPlayerArea(
   nameText.position.set(waterX, waterY + 45);
   container.addChild(nameText);
 
-  app.stage.addChild(container);
-}
-
-function drawHand(
-  app: Application,
-  player: PlayerState,
-  gameState: GameState,
-  centerX: number,
-  y: number,
-  selectedCardId: string | null,
-  selectCard: (id: string | null) => void
-) {
-  const container = new Container();
-
-  const handWidth = player.hand.length * (CARD.width + CARD.spacing);
-  const startX = centerX - handWidth / 2;
-
-  player.hand.forEach((cardId, idx) => {
-    const x = startX + idx * (CARD.width + CARD.spacing) + CARD.width / 2;
-    drawCard(container, cardId, gameState, x, 0, 'hand', selectedCardId, selectCard);
-  });
-
-  container.position.set(0, y);
   app.stage.addChild(container);
 }
 

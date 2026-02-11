@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useGameStore, useTurnPhase, useMyPlayer, useIsMyTurn } from '../stores/gameStore';
 import { GameBoard } from '../pixi/GameBoard';
+import { HandView } from './HandView';
 import { useContainerSize } from '../hooks/useContainerSize';
 import './GameScreen.css';
 
@@ -94,32 +95,36 @@ export function GameScreen() {
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
-          {isMyTurn && turnPhase === 'actions' && (
-            <motion.button
-              className="end-turn-button"
-              onClick={handleEndTurn}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              End Turn
-            </motion.button>
-          )}
+          <HandView gameState={gameState} player={myPlayer} />
 
-          {!isMyTurn && (
-            <div className="waiting-message text-muted">
-              Waiting for opponent...
-            </div>
-          )}
+          <div className="hud-actions">
+            {isMyTurn && turnPhase === 'actions' && (
+              <motion.button
+                className="end-turn-button"
+                onClick={handleEndTurn}
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                End Turn
+              </motion.button>
+            )}
 
-          {isMyTurn && turnPhase !== 'actions' && (
-            <div className="phase-message">
-              {turnPhase === 'events' && 'Resolving events...'}
-              {turnPhase === 'replenish' && 'Drawing card and collecting water...'}
-              {turnPhase === 'end' && 'Ending turn...'}
-            </div>
-          )}
+            {!isMyTurn && (
+              <div className="waiting-message text-muted">
+                Waiting for opponent...
+              </div>
+            )}
+
+            {isMyTurn && turnPhase !== 'actions' && (
+              <div className="phase-message">
+                {turnPhase === 'events' && 'Resolving events...'}
+                {turnPhase === 'replenish' && 'Drawing card and collecting water...'}
+                {turnPhase === 'end' && 'Ending turn...'}
+              </div>
+            )}
+          </div>
         </motion.div>
       </div>
     </div>

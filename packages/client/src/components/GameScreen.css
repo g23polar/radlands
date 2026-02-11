@@ -135,12 +135,21 @@
 /* Bottom HUD Bar */
 .hud-bottom {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: var(--spacing-xl);
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-xl);
   background: linear-gradient(0deg, rgba(26, 26, 46, 0.95) 0%, rgba(26, 26, 46, 0) 100%);
   backdrop-filter: blur(4px);
   min-height: 120px;
+}
+
+.hud-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
 }
 
 .end-turn-button {
