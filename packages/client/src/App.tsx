@@ -4,6 +4,7 @@ import { StartMenu } from './components/StartMenu';
 import { DraftScreen } from './components/DraftScreen';
 import { GameScreen } from './components/GameScreen';
 import { VictoryScreen } from './components/VictoryScreen';
+import { useSoundEffects } from './hooks/useSoundEffects';
 
 /**
  * Main application component
@@ -13,6 +14,8 @@ export function App() {
   const gameState = useGameStore((state) => state.gameState);
   const phase = useGamePhase();
   const winnerId = useWinner();
+
+  useSoundEffects();
 
   // Determine which screen to show
   let screen: JSX.Element;

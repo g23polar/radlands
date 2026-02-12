@@ -2,6 +2,9 @@ import { motion } from 'framer-motion';
 import { useGameStore, useTurnPhase, useMyPlayer, useIsMyTurn } from '../stores/gameStore';
 import { GameBoard } from '../pixi/GameBoard';
 import { HandView } from './HandView';
+import { ActionPanel } from './ActionPanel';
+import { AudioControls } from './AudioControls';
+import { TurnTransition } from './TurnTransition';
 import { useContainerSize } from '../hooks/useContainerSize';
 import './GameScreen.css';
 
@@ -43,6 +46,9 @@ export function GameScreen() {
         <GameBoard width={width} height={height} />
       </div>
 
+      {/* Turn Transition Overlay */}
+      <TurnTransition />
+
       {/* HUD Overlay */}
       <div className="game-hud">
         {/* Top bar - Player info and phase */}
@@ -83,9 +89,12 @@ export function GameScreen() {
             </motion.div>
           </div>
 
-          <div className="turn-counter">
-            <span className="turn-label">Turn</span>
-            <span className="turn-value">{gameState.currentTurn}</span>
+          <div className="hud-top-right">
+            <AudioControls />
+            <div className="turn-counter">
+              <span className="turn-label">Turn</span>
+              <span className="turn-value">{gameState.currentTurn}</span>
+            </div>
           </div>
         </motion.div>
 
@@ -96,6 +105,8 @@ export function GameScreen() {
           animate={{ y: 0, opacity: 1 }}
         >
           <HandView gameState={gameState} player={myPlayer} />
+
+          <ActionPanel gameState={gameState} playerId={myPlayer.id} />
 
           <div className="hud-actions">
             {isMyTurn && turnPhase === 'actions' && (

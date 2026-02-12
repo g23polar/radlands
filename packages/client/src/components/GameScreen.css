@@ -114,6 +114,12 @@
   color: var(--color-text-muted);
 }
 
+.hud-top-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
 .turn-counter {
   display: flex;
   flex-direction: column;

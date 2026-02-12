@@ -1,0 +1,223 @@
+.turn-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.turn-transition-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(26, 26, 46, 0.95) 0%,
+    rgba(26, 26, 46, 0.85) 100%
+  );
+}
+
+.turn-transition-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: var(--spacing-2xl);
+}
+
+.turn-transition-text {
+  font-size: var(--font-size-3xl);
+  font-weight: bold;
+  letter-spacing: 12px;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 30px currentColor,
+    0 0 60px currentColor,
+    0 4px 12px rgba(0, 0, 0, 0.9);
+  position: relative;
+}
+
+/* Turn-specific styling */
+.turn-transition-text.your-turn {
+  color: var(--color-rust-light);
+  animation: pulse-glow 1s ease-in-out;
+}
+
+.turn-transition-text.opponent-turn {
+  color: #6a8bad;
+  animation: pulse-glow-cool 1s ease-in-out;
+}
+
+/* Phase change styling - subtler */
+.turn-transition-text.phase-change {
+  font-size: var(--font-size-2xl);
+  letter-spacing: 6px;
+  color: var(--color-text-secondary);
+  text-shadow:
+    0 0 20px rgba(176, 176, 176, 0.6),
+    0 4px 8px rgba(0, 0, 0, 0.9);
+}
+
+/* Game start styling */
+.turn-transition-text.game-start {
+  color: var(--color-rust-light);
+  font-size: var(--font-size-3xl);
+  letter-spacing: 16px;
+  text-shadow:
+    0 0 40px var(--color-rust-light),
+    0 0 80px var(--color-rust),
+    0 4px 16px rgba(0, 0, 0, 0.9);
+  animation: game-start-pulse 1.5s ease-in-out;
+}
+
+/* Victory/Defeat styling */
+.turn-transition-text.victory {
+  color: #4caf50;
+  font-size: var(--font-size-3xl);
+  letter-spacing: 16px;
+  text-shadow:
+    0 0 40px #4caf50,
+    0 0 80px #388e3c,
+    0 4px 16px rgba(0, 0, 0, 0.9);
+  animation: victory-pulse 2s ease-in-out infinite;
+}
+
+.turn-transition-text.defeat {
+  color: #f44336;
+  font-size: var(--font-size-3xl);
+  letter-spacing: 16px;
+  text-shadow:
+    0 0 40px #f44336,
+    0 0 80px #d32f2f,
+    0 4px 16px rgba(0, 0, 0, 0.9);
+  animation: defeat-pulse 2s ease-in-out;
+}
+
+/* Decorative lines */
+.turn-transition-line {
+  position: absolute;
+  left: 50%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    currentColor 50%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+.turn-transition-line.top {
+  top: -20px;
+  width: 300px;
+  transform: translateX(-50%);
+}
+
+.turn-transition-line.bottom {
+  bottom: -20px;
+  width: 300px;
+  transform: translateX(-50%);
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-glow-cool {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes game-start-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-5deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes victory-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes defeat-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .turn-transition-text {
+    font-size: var(--font-size-2xl);
+    letter-spacing: 8px;
+  }
+
+  .turn-transition-text.phase-change {
+    font-size: var(--font-size-xl);
+    letter-spacing: 4px;
+  }
+
+  .turn-transition-text.game-start,
+  .turn-transition-text.victory,
+  .turn-transition-text.defeat {
+    font-size: var(--font-size-2xl);
+    letter-spacing: 12px;
+  }
+
+  .turn-transition-line.top,
+  .turn-transition-line.bottom {
+    width: 200px;
+  }
+}

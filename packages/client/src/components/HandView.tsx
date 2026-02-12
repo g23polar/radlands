@@ -1,5 +1,5 @@
 import { getCard, type GameState, type PlayerState } from '@radlands/core';
-import { useGameStore } from '../stores/gameStore';
+import { useGameStore, useActionMode } from '../stores/gameStore';
 import './HandView.css';
 
 interface HandViewProps {
@@ -9,9 +9,11 @@ interface HandViewProps {
 
 export function HandView({ gameState, player }: HandViewProps) {
   const selectedCardId = useGameStore((state) => state.ui.selectedCardId);
+  const actionMode = useActionMode();
   const selectCard = useGameStore((state) => state.selectCard);
 
   const handCount = player.hand.length;
+  const isActionInProgress = actionMode !== 'idle';
 
   if (handCount === 0) {
     return (
@@ -43,11 +45,12 @@ export function HandView({ gameState, player }: HandViewProps) {
           const cost = card.type === 'person' || card.type === 'event' ? card.cost : null;
           const junkIcon = card.type === 'person' || card.type === 'event' ? card.junkIcon : null;
           const description = card.abilities?.[0]?.description ?? card.flavorText ?? '';
+          const isDimmed = isActionInProgress && !isSelected;
 
           return (
             <div
               key={instanceId}
-              className={`hand-card card ${isSelected ? 'selected' : ''}`}
+              className={`hand-card card ${isSelected ? 'selected' : ''} ${isDimmed ? 'dimmed' : ''}`}
               onClick={() => selectCard(isSelected ? null : instanceId)}
             >
               <div className="hand-card-header">

@@ -7,6 +7,8 @@ import {
   useOnlineError,
   useOpponentConnected,
 } from '../stores/gameStore';
+import { soundEngine } from '../services/audio';
+import { useAudioStore } from '../stores/audioStore';
 import './StartMenu.css';
 
 type MenuView = 'main' | 'local' | 'online-create' | 'online-join' | 'waiting';
@@ -159,6 +161,13 @@ interface MainMenuProps {
 }
 
 function MainMenu({ onSelectView }: MainMenuProps) {
+  const { masterVolume, sfxVolume, isMuted } = useAudioStore();
+
+  const handleClick = (view: MenuView) => {
+    soundEngine.init(masterVolume, sfxVolume, isMuted);
+    onSelectView(view);
+  };
+
   return (
     <motion.div
       className="start-menu-content"
@@ -188,7 +197,7 @@ function MainMenu({ onSelectView }: MainMenuProps) {
       <div className="menu-buttons">
         <motion.button
           className="menu-button"
-          onClick={() => onSelectView('local')}
+          onClick={() => handleClick('local')}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           initial={{ opacity: 0, x: -20 }}
@@ -201,7 +210,7 @@ function MainMenu({ onSelectView }: MainMenuProps) {
 
         <motion.button
           className="menu-button"
-          onClick={() => onSelectView('online-create')}
+          onClick={() => handleClick('online-create')}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           initial={{ opacity: 0, x: -20 }}
@@ -214,7 +223,7 @@ function MainMenu({ onSelectView }: MainMenuProps) {
 
         <motion.button
           className="menu-button"
-          onClick={() => onSelectView('online-join')}
+          onClick={() => handleClick('online-join')}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           initial={{ opacity: 0, x: -20 }}

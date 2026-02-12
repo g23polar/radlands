@@ -1,0 +1,186 @@
+/**
+ * ActionPanel styles
+ * Shows available actions for selected hand cards
+ */
+
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: rgba(15, 52, 96, 0.95);
+  border: var(--border-width) solid var(--color-rust);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg), 0 0 16px rgba(205, 133, 63, 0.3);
+  max-width: 600px;
+  width: 100%;
+  backdrop-filter: blur(8px);
+}
+
+.action-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  text-align: center;
+}
+
+.action-panel-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.action-panel-card-name {
+  font-size: var(--font-size-lg);
+  color: var(--color-rust-light);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.action-panel-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  justify-content: center;
+}
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-width: 140px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-base);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all var(--transition-fast);
+}
+
+.action-button-label {
+  font-size: var(--font-size-base);
+  line-height: 1.2;
+}
+
+.action-button-cost,
+.action-button-icon {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.action-button-cost {
+  color: var(--color-warning);
+}
+
+.action-button-icon {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-metal);
+  border-radius: var(--border-radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* Action button variants */
+.action-button-play {
+  background: linear-gradient(180deg, var(--color-rust) 0%, var(--color-rust-dark) 100%);
+  border-color: var(--color-rust-light);
+}
+
+.action-button-play:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--color-rust-light) 0%, var(--color-rust) 100%);
+  box-shadow: var(--shadow-lg), 0 0 12px rgba(205, 133, 63, 0.4);
+}
+
+.action-button-punk {
+  background: linear-gradient(180deg, var(--color-bg-light) 0%, var(--color-bg-medium) 100%);
+  border-color: var(--color-metal-light);
+}
+
+.action-button-punk:hover {
+  background: linear-gradient(180deg, var(--color-bg-medium) 0%, var(--color-bg-light) 100%);
+  border-color: var(--color-rust-light);
+}
+
+.action-button-junk {
+  background: linear-gradient(180deg, var(--color-warning) 0%, #c56000 100%);
+  border-color: #f9a825;
+}
+
+.action-button-junk:hover {
+  background: linear-gradient(180deg, #f9a825 0%, var(--color-warning) 100%);
+  box-shadow: var(--shadow-lg), 0 0 12px rgba(245, 124, 0, 0.4);
+}
+
+.action-button-cancel {
+  background: linear-gradient(180deg, var(--color-metal) 0%, #2a2a2a 100%);
+  border-color: var(--color-metal-light);
+  min-width: 100px;
+}
+
+.action-button-cancel:hover {
+  background: linear-gradient(180deg, var(--color-metal-light) 0%, var(--color-metal) 100%);
+  border-color: var(--color-text-secondary);
+}
+
+/* Disabled state */
+.action-button:disabled {
+  background: var(--color-metal);
+  border-color: var(--color-metal);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-sm);
+  opacity: 0.5;
+}
+
+.action-button:disabled .action-button-cost,
+.action-button:disabled .action-button-icon {
+  color: var(--color-text-muted);
+}
+
+.action-button:disabled::before {
+  display: none;
+}
+
+/* Instruction mode */
+.action-panel-instruction {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+}
+
+.action-instruction-text {
+  font-size: var(--font-size-lg);
+  color: var(--color-rust-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex: 1;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .action-panel {
+    padding: var(--spacing-md);
+    max-width: 100%;
+  }
+
+  .action-button {
+    min-width: 110px;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .action-button-label {
+    font-size: var(--font-size-sm);
+  }
+
+  .action-instruction-text {
+    font-size: var(--font-size-base);
+  }
+}
