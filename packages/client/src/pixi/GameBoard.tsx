@@ -6,8 +6,10 @@
 import { useEffect, useRef } from 'react';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { useGameStore } from '../stores/gameStore';
-import type { GameState, PlayerState } from '@radlands/core';
-import { getCard } from '@radlands/core';
+import type { GameState, PlayerState, CardInstanceId } from '@radlands/core';
+import { getCard, getCardInstance } from '@radlands/core';
+import { AnimationQueue } from './AnimationQueue';
+import { registerAllAnimations } from './animations';
 
 // Constants
 const COLORS = {
@@ -20,11 +22,13 @@ const COLORS = {
   cardBorder: 0x4a4a4a,
   selectedBorder: 0xffd700,
   validTarget: 0x00ff00,
+  targetHighlight: 0xff6600,
   damagedOverlay: 0xff4444,
   readyGlow: 0x44ff44,
   text: 0xffffff,
   textSecondary: 0xaaaaaa,
   water: 0x4488ff,
+  emptySlot: 0x2a2a3e,
 };
 
 const CARD = {
@@ -42,10 +46,22 @@ interface GameBoardProps {
 export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
+  const overlayRef = useRef<Container | null>(null);
+  const animationQueueRef = useRef<AnimationQueue | null>(null);
+
   const gameState = useGameStore((state) => state.gameState);
   const localPlayerId = useGameStore((state) => state.localPlayerId);
   const selectedCardId = useGameStore((state) => state.ui.selectedCardId);
   const selectCard = useGameStore((state) => state.selectCard);
+  const actionMode = useGameStore((state) => state.ui.actionMode);
+  const validColumns = useGameStore((state) => state.ui.validColumns);
+  const validQueueSlots = useGameStore((state) => state.ui.validQueueSlots);
+  const validTargets = useGameStore((state) => state.ui.validTargets);
+  const selectColumn = useGameStore((state) => state.selectColumn);
+  const selectQueueSlot = useGameStore((state) => state.selectQueueSlot);
+  const selectTarget = useGameStore((state) => state.selectTarget);
+  const pendingEvents = useGameStore((state) => state.pendingEvents);
+  const clearPendingEvents = useGameStore((state) => state.clearPendingEvents);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -67,8 +83,18 @@ export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
         containerRef.current.appendChild(app.canvas);
         appRef.current = app;
 
+        // Create persistent overlay container for animations
+        const overlay = new Container();
+        overlay.name = 'animationOverlay';
+        overlayRef.current = overlay;
+
+        // Initialize animation queue
+        const animQueue = new AnimationQueue(app);
+        registerAllAnimations((type, factory) => animQueue.registerAnimation(type, factory));
+        animationQueueRef.current = animQueue;
+
         // Initial render
-        renderGame(app, gameState, localPlayerId, selectedCardId, selectCard);
+        renderGame(app, overlay, gameState, localPlayerId, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget);
       }
     };
 
@@ -79,27 +105,45 @@ export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
         appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
       }
+      overlayRef.current = null;
+      animationQueueRef.current = null;
     };
   }, [width, height]);
 
   // Re-render when game state changes
   useEffect(() => {
-    if (appRef.current) {
-      renderGame(appRef.current, gameState, localPlayerId, selectedCardId, selectCard);
+    if (appRef.current && overlayRef.current) {
+      renderGame(appRef.current, overlayRef.current, gameState, localPlayerId, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget);
     }
-  }, [gameState, localPlayerId, selectedCardId]);
+  }, [gameState, localPlayerId, selectedCardId, actionMode, validColumns, validQueueSlots, validTargets]);
+
+  // Process pending animation events
+  useEffect(() => {
+    if (pendingEvents.length > 0 && animationQueueRef.current) {
+      animationQueueRef.current.enqueue(pendingEvents);
+      clearPendingEvents();
+    }
+  }, [pendingEvents, clearPendingEvents]);
 
   return <div ref={containerRef} style={{ width, height }} />;
 }
 
 function renderGame(
   app: Application,
+  overlay: Container,
   gameState: GameState | null,
   localPlayerId: string | null,
   selectedCardId: string | null,
-  selectCard: (id: string | null) => void
+  selectCard: (id: string | null) => void,
+  actionMode: string,
+  validColumns: number[],
+  validQueueSlots: number[],
+  validTargets: CardInstanceId[],
+  selectColumn: (index: 0 | 1 | 2) => void,
+  selectQueueSlot: (position: 0 | 1 | 2) => void,
+  selectTarget: (targetId: CardInstanceId) => void
 ) {
-  // Clear previous render
+  // Clear previous render (but preserve overlay)
   app.stage.removeChildren();
 
   if (!gameState || !localPlayerId) {
@@ -130,11 +174,13 @@ function renderGame(
   drawCenterArea(app, gameState, localPlayerId);
 
   // Draw opponent area (top)
-  drawPlayerArea(app, opponentPlayer, gameState, 'top', centerX, 60, selectedCardId, selectCard);
+  drawPlayerArea(app, opponentPlayer, gameState, 'top', centerX, 60, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget, localPlayerId, false);
 
   // Draw local player area (bottom)
-  drawPlayerArea(app, localPlayer, gameState, 'bottom', centerX, app.screen.height - 280, selectedCardId, selectCard);
+  drawPlayerArea(app, localPlayer, gameState, 'bottom', centerX, app.screen.height - 280, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget, localPlayerId, true);
 
+  // Re-add the overlay container on top of everything
+  app.stage.addChild(overlay);
 }
 
 function renderLoadingScreen(app: Application) {
@@ -248,7 +294,16 @@ function drawPlayerArea(
   centerX: number,
   y: number,
   selectedCardId: string | null,
-  selectCard: (id: string | null) => void
+  selectCard: (id: string | null) => void,
+  actionMode: string,
+  validColumns: number[],
+  validQueueSlots: number[],
+  validTargets: CardInstanceId[],
+  selectColumn: (index: 0 | 1 | 2) => void,
+  selectQueueSlot: (position: 0 | 1 | 2) => void,
+  selectTarget: (targetId: CardInstanceId) => void,
+  localPlayerId: string,
+  isLocalPlayer: boolean
 ) {
   const container = new Container();
   container.position.set(0, y);
@@ -275,7 +330,11 @@ function drawPlayerArea(
         campY,
         'camp',
         selectedCardId,
-        selectCard
+        selectCard,
+        actionMode,
+        validTargets,
+        selectTarget,
+        localPlayerId
       );
     }
 
@@ -292,10 +351,31 @@ function drawPlayerArea(
         personY,
         'person',
         selectedCardId,
-        selectCard
+        selectCard,
+        actionMode,
+        validTargets,
+        selectTarget,
+        localPlayerId
       );
     });
+
+    // Draw empty column slots if in select_column mode and local player
+    if (isLocalPlayer && actionMode === 'select_column' && validColumns.includes(i)) {
+      // Find the position for the next person in this column
+      const numPeople = column.personInstanceIds.length;
+      if (numPeople < 2) {
+        const slotY = side === 'bottom'
+          ? (numPeople === 0 ? 120 : 170)
+          : (numPeople === 0 ? 20 : 70);
+        drawColumnSlot(container, colX, slotY, i, selectColumn);
+      }
+    }
   }
+
+  // Draw event queue (left side)
+  const queueX = startX - 120;
+  const queueY = side === 'top' ? 80 : 80;
+  drawEventQueue(container, player, gameState, queueX, queueY, side, isLocalPlayer, actionMode, validQueueSlots, selectQueueSlot);
 
   // Draw water counter
   const waterX = centerX + totalWidth / 2 + 60;
@@ -345,7 +425,11 @@ function drawCard(
   y: number,
   _location: 'camp' | 'person' | 'hand',
   selectedCardId: string | null,
-  selectCard: (id: string | null) => void
+  selectCard: (id: string | null) => void,
+  actionMode: string,
+  validTargets: CardInstanceId[],
+  selectTarget: (targetId: CardInstanceId) => void,
+  localPlayerId: string
 ) {
   const instance = gameState.cardInstances[instanceId];
   if (!instance) return;
@@ -353,6 +437,8 @@ function drawCard(
   const card = getCard(instance.cardId);
   const isSelected = selectedCardId === instanceId;
   const isPunk = instance.isPunk;
+  const isValidTarget = validTargets.includes(instanceId);
+  const isInTargetMode = actionMode === 'select_target';
 
   // Determine card color
   let cardColor = COLORS.punkCard;
@@ -372,7 +458,11 @@ function drawCard(
   // Click handler
   cardContainer.on('pointerdown', (e) => {
     e.stopPropagation();
-    selectCard(isSelected ? null : instanceId);
+    if (isInTargetMode && isValidTarget) {
+      selectTarget(instanceId);
+    } else {
+      selectCard(isSelected ? null : instanceId);
+    }
   });
 
   // Card background
@@ -380,12 +470,40 @@ function drawCard(
   bg.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, CARD.cornerRadius);
   bg.fill({ color: cardColor });
 
-  // Border
-  const borderColor = isSelected ? COLORS.selectedBorder : COLORS.cardBorder;
-  const borderWidth = isSelected ? 3 : 1;
+  // Border - handle target highlighting
+  let borderColor = COLORS.cardBorder;
+  let borderWidth = 1;
+
+  if (isSelected) {
+    borderColor = COLORS.selectedBorder;
+    borderWidth = 3;
+  } else if (isInTargetMode && isValidTarget) {
+    // Determine if card is friendly or enemy
+    const isFriendly = instance.ownerId === localPlayerId;
+    borderColor = isFriendly ? COLORS.validTarget : COLORS.targetHighlight;
+    borderWidth = 3;
+  }
+
   bg.stroke({ color: borderColor, width: borderWidth });
 
   cardContainer.addChild(bg);
+
+  // Dim non-target cards when in target mode
+  if (isInTargetMode && !isValidTarget) {
+    const dim = new Graphics();
+    dim.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, CARD.cornerRadius);
+    dim.fill({ color: 0x000000, alpha: 0.5 });
+    cardContainer.addChild(dim);
+  }
+
+  // Pulsing animation for valid targets
+  if (isInTargetMode && isValidTarget) {
+    const pulse = new Graphics();
+    pulse.roundRect(-CARD.width / 2 - 3, -CARD.height / 2 - 3, CARD.width + 6, CARD.height + 6, CARD.cornerRadius + 2);
+    const isFriendly = instance.ownerId === localPlayerId;
+    pulse.stroke({ color: isFriendly ? COLORS.validTarget : COLORS.targetHighlight, width: 2, alpha: 0.8 });
+    cardContainer.addChild(pulse);
+  }
 
   // Damaged overlay
   if (instance.isDamaged) {
@@ -437,4 +555,207 @@ function drawCard(
   }
 
   container.addChild(cardContainer);
+}
+
+/**
+ * Draw event queue for a player
+ */
+function drawEventQueue(
+  container: Container,
+  player: PlayerState,
+  gameState: GameState,
+  x: number,
+  y: number,
+  _side: 'top' | 'bottom',
+  isLocalPlayer: boolean,
+  actionMode: string,
+  validQueueSlots: number[],
+  selectQueueSlot: (position: 0 | 1 | 2) => void
+) {
+  const queueTitle = new Text({
+    text: 'EVENTS',
+    style: new TextStyle({
+      fill: COLORS.textSecondary,
+      fontSize: 10,
+      fontFamily: 'Courier New, monospace',
+      fontWeight: 'bold',
+    }),
+  });
+  queueTitle.anchor.set(0.5);
+  queueTitle.position.set(x, y - 40);
+  container.addChild(queueTitle);
+
+  // Draw 3 queue slots vertically
+  const slotHeight = 50;
+  for (let i = 0; i < 3; i++) {
+    const slot = player.eventQueue[i];
+    if (!slot) continue;
+
+    const slotY = y + i * slotHeight;
+
+    if (slot.eventInstanceId) {
+      // Draw event card
+      const instance = getCardInstance(gameState, slot.eventInstanceId);
+      if (instance) {
+        const card = getCard(instance.cardId);
+
+        const slotContainer = new Container();
+        slotContainer.position.set(x, slotY);
+
+        // Card background
+        const bg = new Graphics();
+        bg.roundRect(-35, -20, 70, 40, 4);
+        bg.fill({ color: COLORS.eventCard });
+        bg.stroke({ color: COLORS.cardBorder, width: 1 });
+        slotContainer.addChild(bg);
+
+        // Card name
+        const name = card?.name || '???';
+        const nameText = new Text({
+          text: name,
+          style: new TextStyle({
+            fill: COLORS.text,
+            fontSize: 8,
+            fontFamily: 'Courier New, monospace',
+            wordWrap: true,
+            wordWrapWidth: 60,
+            align: 'center',
+          }),
+        });
+        nameText.anchor.set(0.5);
+        nameText.position.set(0, -8);
+        slotContainer.addChild(nameText);
+
+        // Position number
+        const posText = new Text({
+          text: `${i}`,
+          style: new TextStyle({
+            fill: COLORS.textSecondary,
+            fontSize: 10,
+            fontFamily: 'Courier New, monospace',
+            fontWeight: 'bold',
+          }),
+        });
+        posText.anchor.set(0.5);
+        posText.position.set(0, 8);
+        slotContainer.addChild(posText);
+
+        container.addChild(slotContainer);
+      }
+    } else {
+      // Draw empty slot
+      drawQueueSlot(container, x, slotY, i, isLocalPlayer, actionMode, validQueueSlots, selectQueueSlot);
+    }
+  }
+}
+
+/**
+ * Draw an empty column slot with highlighting
+ */
+function drawColumnSlot(
+  container: Container,
+  x: number,
+  y: number,
+  columnIndex: number,
+  selectColumn: (index: 0 | 1 | 2) => void
+) {
+  const slotContainer = new Container();
+  slotContainer.position.set(x, y);
+  slotContainer.eventMode = 'static';
+  slotContainer.cursor = 'pointer';
+
+  // Click handler
+  slotContainer.on('pointerdown', (e) => {
+    e.stopPropagation();
+    selectColumn(columnIndex as 0 | 1 | 2);
+  });
+
+  // Slot background with pulsing border
+  const bg = new Graphics();
+  bg.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, CARD.cornerRadius);
+  bg.fill({ color: COLORS.emptySlot, alpha: 0.5 });
+  bg.stroke({ color: COLORS.validTarget, width: 3 });
+  slotContainer.addChild(bg);
+
+  // Plus icon
+  const plusText = new Text({
+    text: '+',
+    style: new TextStyle({
+      fill: COLORS.validTarget,
+      fontSize: 32,
+      fontFamily: 'Courier New, monospace',
+      fontWeight: 'bold',
+    }),
+  });
+  plusText.anchor.set(0.5);
+  plusText.position.set(0, 0);
+  slotContainer.addChild(plusText);
+
+  container.addChild(slotContainer);
+}
+
+/**
+ * Draw an empty queue slot with optional highlighting
+ */
+function drawQueueSlot(
+  container: Container,
+  x: number,
+  y: number,
+  position: number,
+  isLocalPlayer: boolean,
+  actionMode: string,
+  validQueueSlots: number[],
+  selectQueueSlot: (position: 0 | 1 | 2) => void
+) {
+  const isValid = isLocalPlayer && actionMode === 'select_queue_slot' && validQueueSlots.includes(position);
+
+  const slotContainer = new Container();
+  slotContainer.position.set(x, y);
+
+  if (isValid) {
+    slotContainer.eventMode = 'static';
+    slotContainer.cursor = 'pointer';
+
+    // Click handler
+    slotContainer.on('pointerdown', (e) => {
+      e.stopPropagation();
+      selectQueueSlot(position as 0 | 1 | 2);
+    });
+  }
+
+  // Slot background
+  const bg = new Graphics();
+  bg.roundRect(-35, -20, 70, 40, 4);
+  bg.fill({ color: COLORS.emptySlot, alpha: isValid ? 0.5 : 0.2 });
+  bg.stroke({ color: isValid ? COLORS.validTarget : COLORS.cardBorder, width: isValid ? 3 : 1 });
+  slotContainer.addChild(bg);
+
+  // Text
+  const text = new Text({
+    text: isValid ? '+' : 'EMPTY',
+    style: new TextStyle({
+      fill: isValid ? COLORS.validTarget : COLORS.textSecondary,
+      fontSize: isValid ? 24 : 8,
+      fontFamily: 'Courier New, monospace',
+      fontWeight: isValid ? 'bold' : 'normal',
+    }),
+  });
+  text.anchor.set(0.5);
+  text.position.set(0, -4);
+  slotContainer.addChild(text);
+
+  // Position number
+  const posText = new Text({
+    text: `${position}`,
+    style: new TextStyle({
+      fill: COLORS.textSecondary,
+      fontSize: 8,
+      fontFamily: 'Courier New, monospace',
+    }),
+  });
+  posText.anchor.set(0.5);
+  posText.position.set(0, 8);
+  slotContainer.addChild(posText);
+
+  container.addChild(slotContainer);
 }

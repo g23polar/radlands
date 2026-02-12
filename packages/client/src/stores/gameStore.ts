@@ -16,12 +16,18 @@ import {
   type PlayerId,
   type CardInstanceId,
   type PendingAction,
+  type GameEvent,
   createGame,
   applyAction,
   getPlayer,
   getOpponentId,
   validateAction,
   getValidActions,
+  getCard,
+  getCardInstance,
+  getValidDamageTargets,
+  getValidRaidTargets,
+  canTarget,
 } from '@radlands/core';
 import {
   getSocket,
@@ -51,6 +57,16 @@ export type ConnectionState =
   | 'in_game';
 
 /**
+ * Interaction flow modes
+ */
+export type ActionMode =
+  | 'idle'
+  | 'select_action'     // Hand card selected, choosing what to do
+  | 'select_column'     // Choosing a column for play_person/play_punk
+  | 'select_queue_slot' // Choosing a queue slot for play_event
+  | 'select_target';    // Choosing a target card for junk/ability
+
+/**
  * UI-specific state not part of core game logic
  */
 interface UIState {
@@ -62,6 +78,18 @@ interface UIState {
   validTargets: CardInstanceId[];
   /** Pending action awaiting target selection */
   pendingAction: PendingAction | null;
+  /** Current interaction flow mode */
+  actionMode: ActionMode;
+  /** The action type being built */
+  pendingActionType: string | null;
+  /** Valid column indices for placement */
+  validColumns: number[];
+  /** Valid queue slot indices for placement */
+  validQueueSlots: number[];
+  /** Ability index being used */
+  pendingAbilityIndex: number | null;
+  /** Source card for ability use */
+  pendingSourceId: CardInstanceId | null;
 }
 
 /**
@@ -95,6 +123,10 @@ interface GameStore {
   // Online state
   online: OnlineState;
 
+  // Animation events
+  pendingEvents: GameEvent[];
+  clearPendingEvents: () => void;
+
   // Local game actions
   initGame: (player1Name: string, player2Name: string) => void;
   setLocalPlayer: (playerId: PlayerId) => void;
@@ -103,6 +135,14 @@ interface GameStore {
   performAction: (action: GameAction) => boolean;
   setPendingAction: (pending: PendingAction | null) => void;
   resetGame: () => void;
+
+  // Interaction flow actions
+  startAction: (actionType: 'play_person' | 'play_event' | 'play_punk' | 'junk') => void;
+  startAbility: (sourceInstanceId: CardInstanceId, abilityIndex: number) => void;
+  selectColumn: (columnIndex: 0 | 1 | 2) => void;
+  selectQueueSlot: (position: 0 | 1 | 2) => void;
+  selectTarget: (targetId: CardInstanceId) => void;
+  cancelAction: () => void;
 
   // Online game actions
   createOnlineGame: (playerName: string) => Promise<void>;
@@ -133,6 +173,12 @@ const initialUIState: UIState = {
   hoveredCardId: null,
   validTargets: [],
   pendingAction: null,
+  actionMode: 'idle',
+  pendingActionType: null,
+  validColumns: [],
+  validQueueSlots: [],
+  pendingAbilityIndex: null,
+  pendingSourceId: null,
 };
 
 /**
@@ -157,6 +203,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   mode: 'local',
   localPlayerId: null,
   online: initialOnlineState,
+  pendingEvents: [],
+
+  /**
+   * Clear pending animation events
+   */
+  clearPendingEvents: () => {
+    set({ pendingEvents: [] });
+  },
 
   /**
    * Initialize a new local game
@@ -210,31 +264,53 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
   /**
    * Select a card (for targeting or highlighting)
+   * If in target selection mode, clicking a valid target triggers the action.
+   * If selecting a hand card, enters select_action mode.
+   * If selecting a board card, shows abilities if available.
    */
   selectCard: (cardId: CardInstanceId | null) => {
-    const { gameState, localPlayerId } = get();
+    const { gameState, localPlayerId, ui } = get();
     if (!gameState || !localPlayerId) return;
 
-    let validTargets: CardInstanceId[] = [];
-    if (cardId) {
-      const actions = getValidActions(gameState, localPlayerId);
-      for (const action of actions) {
-        if (
-          action.type === 'use_ability' &&
-          action.sourceInstanceId === cardId
-        ) {
-          // TODO: Implement proper target calculation based on ability
-        }
-      }
+    // If deselecting, cancel action
+    if (!cardId) {
+      set({ ui: { ...initialUIState } });
+      return;
     }
 
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        selectedCardId: cardId,
-        validTargets,
-      },
-    }));
+    // If in target selection mode and clicked a valid target, select it
+    if (ui.actionMode === 'select_target' && ui.validTargets.includes(cardId)) {
+      get().selectTarget(cardId);
+      return;
+    }
+
+    // Check if this card is in the local player's hand
+    const player = getPlayer(gameState, localPlayerId);
+    if (!player) return;
+
+    const isInHand = player.hand.includes(cardId);
+    const isMyTurn = gameState.activePlayerId === localPlayerId;
+    const isActionsPhase = gameState.turnPhase === 'actions';
+
+    if (isInHand && isMyTurn && isActionsPhase) {
+      // Selecting a hand card — enter action selection mode
+      set(() => ({
+        ui: {
+          ...initialUIState,
+          selectedCardId: cardId,
+          actionMode: 'select_action',
+        },
+      }));
+    } else {
+      // Selecting a board card — just highlight it
+      set(() => ({
+        ui: {
+          ...initialUIState,
+          selectedCardId: cardId,
+          actionMode: 'idle',
+        },
+      }));
+    }
   },
 
   /**
@@ -280,11 +356,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     set({
       gameState: result.newState,
       ui: initialUIState,
+      pendingEvents: result.events || [],
     });
-
-    if (result.events && result.events.length > 0) {
-      console.log('Game events:', result.events);
-    }
 
     return true;
   },
@@ -298,6 +371,272 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         ...state.ui,
         pendingAction: pending,
         validTargets: pending?.validTargets ?? [],
+      },
+    }));
+  },
+
+  // ========== Interaction Flow Actions ==========
+
+  /**
+   * Start an action for the currently selected hand card
+   */
+  startAction: (actionType: 'play_person' | 'play_event' | 'play_punk' | 'junk') => {
+    const { gameState, localPlayerId, ui } = get();
+    if (!gameState || !localPlayerId || !ui.selectedCardId) return;
+
+    const player = getPlayer(gameState, localPlayerId);
+    if (!player) return;
+
+    const cardId = ui.selectedCardId;
+
+    if (actionType === 'play_person' || actionType === 'play_punk') {
+      // Find valid columns (those with < 2 people)
+      const validCols: number[] = [];
+      for (let i = 0; i < 3; i++) {
+        const col = player.columns[i];
+        if (col && col.personInstanceIds.length < 2) {
+          validCols.push(i);
+        }
+      }
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          actionMode: 'select_column',
+          pendingActionType: actionType,
+          validColumns: validCols,
+          validQueueSlots: [],
+          validTargets: [],
+        },
+      }));
+    } else if (actionType === 'play_event') {
+      // Find valid queue slots (those that are empty)
+      const validSlots: number[] = [];
+      for (let i = 0; i < 3; i++) {
+        const slot = player.eventQueue[i];
+        if (slot && slot.eventInstanceId === null) {
+          validSlots.push(i);
+        }
+      }
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          actionMode: 'select_queue_slot',
+          pendingActionType: actionType,
+          validColumns: [],
+          validQueueSlots: validSlots,
+          validTargets: [],
+        },
+      }));
+    } else if (actionType === 'junk') {
+      const instance = getCardInstance(gameState, cardId);
+      if (!instance) return;
+      const card = getCard(instance.cardId);
+      if (!card) return;
+
+      const junkIcon = (card.type === 'person' || card.type === 'event') ? card.junkIcon : undefined;
+      if (!junkIcon) return;
+
+      // Junk icons that need targets
+      if (junkIcon === 'damage') {
+        const targets = getValidDamageTargets(gameState, localPlayerId);
+        set((state) => ({
+          ui: {
+            ...state.ui,
+            actionMode: 'select_target',
+            pendingActionType: 'junk',
+            validTargets: targets,
+            validColumns: [],
+            validQueueSlots: [],
+          },
+        }));
+      } else if (junkIcon === 'raid') {
+        const targets = getValidRaidTargets(gameState, localPlayerId);
+        set((state) => ({
+          ui: {
+            ...state.ui,
+            actionMode: 'select_target',
+            pendingActionType: 'junk',
+            validTargets: targets,
+            validColumns: [],
+            validQueueSlots: [],
+          },
+        }));
+      } else if (junkIcon === 'restore') {
+        // Find all damaged friendly board cards
+        const targets: CardInstanceId[] = [];
+        for (const col of player.columns) {
+          if (col.campInstanceId) {
+            const inst = getCardInstance(gameState, col.campInstanceId);
+            if (inst?.isDamaged) targets.push(col.campInstanceId);
+          }
+          for (const pid of col.personInstanceIds) {
+            const inst = getCardInstance(gameState, pid);
+            if (inst?.isDamaged) targets.push(pid);
+          }
+        }
+        if (targets.length > 0) {
+          set((state) => ({
+            ui: {
+              ...state.ui,
+              actionMode: 'select_target',
+              pendingActionType: 'junk',
+              validTargets: targets,
+              validColumns: [],
+              validQueueSlots: [],
+            },
+          }));
+        } else {
+          // No valid restore targets - can't junk for restore
+          return;
+        }
+      } else {
+        // draw, punk, water — no target needed, execute immediately
+        const { performAction } = get();
+        performAction({
+          type: 'junk_card',
+          playerId: localPlayerId,
+          cardInstanceId: cardId,
+        });
+      }
+    }
+  },
+
+  /**
+   * Start using an ability from a board card
+   */
+  startAbility: (sourceInstanceId: CardInstanceId, abilityIndex: number) => {
+    const { gameState, localPlayerId } = get();
+    if (!gameState || !localPlayerId) return;
+
+    const instance = getCardInstance(gameState, sourceInstanceId);
+    if (!instance) return;
+
+    const card = getCard(instance.cardId);
+    if (!card?.abilities?.[abilityIndex]) return;
+
+    const ability = card.abilities[abilityIndex];
+    const primaryEffect = ability.effects[0];
+
+    // Check if ability needs a target
+    if (primaryEffect && primaryEffect.target !== 'none' && primaryEffect.target !== 'self') {
+      // Find valid targets for this ability
+      const targets: CardInstanceId[] = [];
+      // Check all board cards
+      for (const playerId of gameState.playerOrder) {
+        const player = getPlayer(gameState, playerId);
+        if (!player) continue;
+        for (const col of player.columns) {
+          if (col.campInstanceId) {
+            if (canTarget(gameState, localPlayerId, col.campInstanceId, primaryEffect.target)) {
+              targets.push(col.campInstanceId);
+            }
+          }
+          for (const pid of col.personInstanceIds) {
+            if (canTarget(gameState, localPlayerId, pid, primaryEffect.target)) {
+              targets.push(pid);
+            }
+          }
+        }
+      }
+
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          selectedCardId: sourceInstanceId,
+          actionMode: 'select_target',
+          pendingActionType: 'use_ability',
+          pendingAbilityIndex: abilityIndex,
+          pendingSourceId: sourceInstanceId,
+          validTargets: targets,
+          validColumns: [],
+          validQueueSlots: [],
+        },
+      }));
+    } else {
+      // No target needed — execute immediately
+      const { performAction } = get();
+      performAction({
+        type: 'use_ability',
+        playerId: localPlayerId,
+        sourceInstanceId,
+        abilityIndex,
+      });
+    }
+  },
+
+  /**
+   * Select a column for play_person or play_punk
+   */
+  selectColumn: (columnIndex: 0 | 1 | 2) => {
+    const { gameState, localPlayerId, ui, performAction } = get();
+    if (!gameState || !localPlayerId || !ui.selectedCardId) return;
+
+    if (ui.pendingActionType === 'play_person') {
+      performAction({
+        type: 'play_person',
+        playerId: localPlayerId,
+        cardInstanceId: ui.selectedCardId,
+        columnIndex,
+      });
+    } else if (ui.pendingActionType === 'play_punk') {
+      performAction({
+        type: 'play_punk',
+        playerId: localPlayerId,
+        cardInstanceId: ui.selectedCardId,
+        columnIndex,
+      });
+    }
+  },
+
+  /**
+   * Select a queue slot for play_event
+   */
+  selectQueueSlot: (position: 0 | 1 | 2) => {
+    const { gameState, localPlayerId, ui, performAction } = get();
+    if (!gameState || !localPlayerId || !ui.selectedCardId) return;
+
+    if (ui.pendingActionType === 'play_event') {
+      performAction({
+        type: 'play_event',
+        playerId: localPlayerId,
+        cardInstanceId: ui.selectedCardId,
+        queuePosition: position,
+      });
+    }
+  },
+
+  /**
+   * Select a target card for junk or ability
+   */
+  selectTarget: (targetId: CardInstanceId) => {
+    const { gameState, localPlayerId, ui, performAction } = get();
+    if (!gameState || !localPlayerId) return;
+
+    if (ui.pendingActionType === 'junk' && ui.selectedCardId) {
+      performAction({
+        type: 'junk_card',
+        playerId: localPlayerId,
+        cardInstanceId: ui.selectedCardId,
+        targetInstanceId: targetId,
+      });
+    } else if (ui.pendingActionType === 'use_ability' && ui.pendingSourceId != null) {
+      performAction({
+        type: 'use_ability',
+        playerId: localPlayerId,
+        sourceInstanceId: ui.pendingSourceId,
+        abilityIndex: ui.pendingAbilityIndex ?? 0,
+        targetInstanceId: targetId,
+      });
+    }
+  },
+
+  /**
+   * Cancel the current action flow
+   */
+  cancelAction: () => {
+    set(() => ({
+      ui: {
+        ...initialUIState,
       },
     }));
   },
@@ -463,8 +802,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       _setOnlineState({ connectionState: 'in_game' });
     });
 
-    socket.on('game:state', (data) => {
+    socket.on('game:state', (data: { state: GameState; events?: GameEvent[] }) => {
       _setGameState(data.state);
+      if (data.events && data.events.length > 0) {
+        set({ pendingEvents: data.events });
+      }
     });
 
     socket.on('game:action-error', (data) => {
@@ -610,3 +952,19 @@ export const usePendingAction = () =>
 /** Get game winner */
 export const useWinner = () =>
   useGameStore((state) => state.gameState?.winnerId);
+
+/** Get action mode */
+export const useActionMode = () =>
+  useGameStore((state) => state.ui.actionMode);
+
+/** Get pending action type */
+export const usePendingActionType = () =>
+  useGameStore((state) => state.ui.pendingActionType);
+
+/** Get valid columns for placement */
+export const useValidColumns = () =>
+  useGameStore((state) => state.ui.validColumns);
+
+/** Get valid queue slots for placement */
+export const useValidQueueSlots = () =>
+  useGameStore((state) => state.ui.validQueueSlots);

@@ -10,6 +10,7 @@ import {
   type GameState,
   type GameAction,
   type PlayerId,
+  type GameEvent,
   createGame,
   applyAction,
   validateAction,
@@ -43,7 +44,7 @@ export interface ServerEvents {
   'room:error': (data: { message: string }) => void;
 
   // Game events
-  'game:state': (data: { state: GameState }) => void;
+  'game:state': (data: { state: GameState; events?: GameEvent[] }) => void;
   'game:action-error': (data: { message: string; action: GameAction }) => void;
   'game:started': (data: { state: GameState }) => void;
   'game:ended': (data: { winnerId: PlayerId; reason: string }) => void;
@@ -266,8 +267,11 @@ export function setupSocketHandlers(io: Server, db: GameDatabase): void {
       const game = db.getGame(gameId);
       if (!game) return;
 
-      // Broadcast new state to all players
-      io.to(game.roomCode).emit('game:state', { state: newState });
+      // Broadcast new state to all players with events
+      io.to(game.roomCode).emit('game:state', {
+        state: newState,
+        events: result.events || []
+      });
 
       // Check for game end
       if (newState.phase === 'ended' && newState.winnerId) {
