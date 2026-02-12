@@ -175,6 +175,8 @@ function handlePlayPerson(
       instanceId: action.cardInstanceId,
       cardId: instance.cardId,
       columnIndex: action.columnIndex,
+      position: 'person',
+      personIndex: 0,
     },
   });
 
@@ -259,6 +261,7 @@ function handlePlayEvent(
       instanceId: action.cardInstanceId,
       cardId: instance.cardId,
       queuePosition: action.queuePosition,
+      position: 'queue',
     },
   });
 

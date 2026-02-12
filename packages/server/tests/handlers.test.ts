@@ -804,4 +804,41 @@ describe('Socket Handlers', () => {
       expect((joined as any).playerId).toBe('player1');
     });
   });
+
+  describe('Room leaving', () => {
+    it('should handle explicit room leave', async () => {
+      db.createGame('test-id', 'ABC123');
+
+      const client1 = await connectClient();
+      await new Promise((resolve) => {
+        client1.on('room:joined', resolve);
+        client1.emit('room:join', {
+          roomCode: 'ABC123',
+          playerName: 'Alice',
+        });
+      });
+
+      const client2 = await connectClient();
+      await new Promise((resolve) => {
+        client2.on('room:joined', resolve);
+        client2.emit('room:join', {
+          roomCode: 'ABC123',
+          playerName: 'Bob',
+        });
+      });
+
+      const playerLeftPromise = new Promise((resolve) => {
+        client2.on('room:player-left', resolve);
+      });
+
+      client1.emit('room:leave');
+
+      const playerLeft = (await playerLeftPromise) as any;
+      expect(playerLeft.playerId).toBe('player1');
+      expect(playerLeft.playerSlot).toBe(1);
+
+      client1.disconnect();
+      client2.disconnect();
+    });
+  });
 });

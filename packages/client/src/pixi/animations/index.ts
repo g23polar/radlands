@@ -17,6 +17,9 @@ import {
   ripple,
   screenFlash,
   tween,
+  shake,
+  shrinkAndFade,
+  slideCard,
   Easing,
 } from '../tweenUtils';
 
@@ -26,10 +29,93 @@ const COLORS = {
   readyGlow: 0x44ff44,
   water: 0x4488ff,
   eventCard: 0x4a2d6f,
+  personCard: 0x2d4a6f,
   text: 0xffffff,
   validTarget: 0x00ff00,
   targetHighlight: 0xff6600,
 };
+
+// Card dimensions (matching GameBoard.tsx)
+const CARD = {
+  width: 80,
+  height: 110,
+  spacing: 10,
+};
+
+/**
+ * Calculate card position based on game event data
+ * Returns { x, y } for the card's location on screen
+ */
+function getCardPosition(event: GameEvent, app: Application): { x: number; y: number } {
+  const data = event.data as {
+    x?: number;
+    y?: number;
+    playerId?: string;
+    columnIndex?: number;
+    position?: 'camp' | 'person' | 'hand' | 'deck' | 'queue';
+    personIndex?: number;
+    queuePosition?: number;
+  };
+
+  // If explicit coordinates provided, use them
+  if (data.x !== undefined && data.y !== undefined) {
+    return { x: data.x, y: data.y };
+  }
+
+  const centerX = app.screen.width / 2;
+  const isTopPlayer = data.playerId === 'player2' || data.playerId !== 'player1';
+
+  // Calculate based on position type
+  if (data.position === 'deck') {
+    // Deck position (off-screen right)
+    return {
+      x: app.screen.width + 100,
+      y: isTopPlayer ? 100 : app.screen.height - 200,
+    };
+  }
+
+  if (data.position === 'hand') {
+    // Hand area (bottom center for player1, top for player2)
+    return {
+      x: centerX,
+      y: isTopPlayer ? 50 : app.screen.height - 50,
+    };
+  }
+
+  if (data.position === 'queue' && data.queuePosition !== undefined) {
+    // Event queue position
+    const queueX = centerX - 180;
+    const queueY = isTopPlayer ? 80 + data.queuePosition * 65 : 360 + data.queuePosition * 65;
+    return { x: queueX, y: queueY };
+  }
+
+  if (data.columnIndex !== undefined) {
+    // Board position (camp or person)
+    const columnWidth = CARD.width + CARD.spacing;
+    const totalWidth = columnWidth * 3;
+    const startX = centerX - totalWidth / 2;
+    const colX = startX + data.columnIndex * columnWidth + CARD.width / 2;
+
+    let y: number;
+    if (data.position === 'camp') {
+      y = isTopPlayer ? 190 : 360;
+    } else if (data.position === 'person' && data.personIndex !== undefined) {
+      if (isTopPlayer) {
+        y = data.personIndex === 0 ? 80 : 130;
+      } else {
+        y = data.personIndex === 0 ? 480 : 530;
+      }
+    } else {
+      // Default person position
+      y = isTopPlayer ? 130 : 480;
+    }
+
+    return { x: colX, y };
+  }
+
+  // Default fallback to center
+  return { x: centerX, y: app.screen.height / 2 };
+}
 
 /** Get the overlay container from the app stage */
 function getOverlay(app: Application): Container {
@@ -48,66 +134,137 @@ function getOverlay(app: Application): Container {
 
 /**
  * Animation: Card Played
- * Brief "whoosh" particle effect at the card's destination
+ * Card slides from hand to destination with particle effect
  */
 async function animateCardPlayed(event: GameEvent, app: Application): Promise<void> {
   const overlay = getOverlay(app);
-  const { x = app.screen.width / 2, y = app.screen.height / 2 } = event.data as { x?: number; y?: number };
+  const data = event.data as {
+    playerId?: string;
+    columnIndex?: number;
+    position?: 'person' | 'camp' | 'queue';
+    queuePosition?: number;
+  };
 
-  await particleBurst(overlay, x, y, COLORS.validTarget, 6, 40, 400);
-}
+  // Calculate start position (hand)
+  const fromPos = getCardPosition(
+    { type: 'card_played', data: { ...data, position: 'hand' } },
+    app
+  );
 
-/**
- * Animation: Card Damaged
- * Red flash overlay at the card's position
- */
-async function animateCardDamaged(event: GameEvent, app: Application): Promise<void> {
-  const overlay = getOverlay(app);
-  const { x = app.screen.width / 2, y = app.screen.height / 2 } = event.data as { x?: number; y?: number };
+  // Calculate end position (board)
+  const toPos = getCardPosition(event, app);
 
-  // Create a temporary target at the position for flashing
-  const target = new Graphics();
-  target.rect(x - 40, y - 55, 80, 110);
-  target.fill({ color: 0x000000, alpha: 0 });
-  overlay.addChild(target);
-
-  await flash(overlay, target, COLORS.damagedOverlay, 2, 150);
-
-  overlay.removeChild(target);
-  target.destroy();
-}
-
-/**
- * Animation: Card Destroyed
- * Fade-out + particle burst at the card's last position
- */
-async function animateCardDestroyed(event: GameEvent, app: Application): Promise<void> {
-  const overlay = getOverlay(app);
-  const { x = app.screen.width / 2, y = app.screen.height / 2 } = event.data as { x?: number; y?: number };
-
+  // Slide the card from hand to board
   await Promise.all([
-    particleBurst(overlay, x, y, COLORS.damagedOverlay, 12, 60, 500),
-    delay(200),
+    slideCard(overlay, fromPos.x, fromPos.y, toPos.x, toPos.y, COLORS.personCard, 500),
+    (async () => {
+      await delay(400);
+      await particleBurst(overlay, toPos.x, toPos.y, COLORS.validTarget, 6, 40, 300);
+    })(),
   ]);
 }
 
 /**
+ * Animation: Card Damaged
+ * Shake + red flash overlay at the card's position
+ */
+async function animateCardDamaged(event: GameEvent, app: Application): Promise<void> {
+  const overlay = getOverlay(app);
+  const pos = getCardPosition(event, app);
+
+  // Create a card visual to shake
+  const cardVisual = new Graphics();
+  cardVisual.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, 6);
+  cardVisual.fill({ color: COLORS.personCard, alpha: 0.8 });
+  cardVisual.stroke({ color: COLORS.damagedOverlay, width: 3 });
+  cardVisual.position.set(pos.x, pos.y);
+  overlay.addChild(cardVisual);
+
+  // Create flash overlay
+  const flashOverlay = new Graphics();
+  flashOverlay.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, 6);
+  flashOverlay.fill({ color: COLORS.damagedOverlay, alpha: 0 });
+  flashOverlay.position.set(pos.x, pos.y);
+  overlay.addChild(flashOverlay);
+
+  // Shake and flash simultaneously
+  await Promise.all([
+    shake(cardVisual, 8, 300),
+    flash(overlay, flashOverlay, COLORS.damagedOverlay, 2, 150),
+  ]);
+
+  // Fade out the visual
+  await tween(cardVisual, { alpha: 0 }, 150, Easing.easeOutQuad);
+
+  overlay.removeChild(cardVisual);
+  overlay.removeChild(flashOverlay);
+  cardVisual.destroy();
+  flashOverlay.destroy();
+}
+
+/**
+ * Animation: Card Destroyed
+ * Shrink/fade/rotate + particle burst at the card's last position
+ */
+async function animateCardDestroyed(event: GameEvent, app: Application): Promise<void> {
+  const overlay = getOverlay(app);
+  const pos = getCardPosition(event, app);
+
+  // Create a card visual to destroy
+  const cardVisual = new Graphics();
+  cardVisual.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, 6);
+  cardVisual.fill({ color: COLORS.personCard, alpha: 0.9 });
+  cardVisual.stroke({ color: COLORS.damagedOverlay, width: 2 });
+  cardVisual.position.set(pos.x, pos.y);
+  overlay.addChild(cardVisual);
+
+  // Shrink and fade with particle burst
+  await Promise.all([
+    shrinkAndFade(cardVisual, 400),
+    (async () => {
+      await delay(200);
+      await particleBurst(overlay, pos.x, pos.y, COLORS.damagedOverlay, 12, 60, 500);
+    })(),
+  ]);
+
+  overlay.removeChild(cardVisual);
+  cardVisual.destroy();
+}
+
+/**
  * Animation: Card Restored
- * Green glow pulse at the card's position
+ * Green glow pulse + brief scale bounce at the card's position
  */
 async function animateCardRestored(event: GameEvent, app: Application): Promise<void> {
   const overlay = getOverlay(app);
-  const { x = app.screen.width / 2, y = app.screen.height / 2 } = event.data as { x?: number; y?: number };
+  const pos = getCardPosition(event, app);
+
+  // Create a card visual to animate
+  const cardVisual = new Graphics();
+  cardVisual.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, 6);
+  cardVisual.fill({ color: COLORS.personCard, alpha: 0.7 });
+  cardVisual.stroke({ color: COLORS.readyGlow, width: 3 });
+  cardVisual.position.set(pos.x, pos.y);
+  overlay.addChild(cardVisual);
 
   const target = new Graphics();
-  target.rect(x - 40, y - 55, 80, 110);
+  target.rect(pos.x - 40, pos.y - 55, 80, 110);
   target.fill({ color: 0x000000, alpha: 0 });
   overlay.addChild(target);
 
-  await glowPulse(overlay, target, COLORS.readyGlow, 2, 300);
+  // Glow pulse with scale bounce
+  await Promise.all([
+    glowPulse(overlay, target, COLORS.readyGlow, 2, 300),
+    (async () => {
+      await tween(cardVisual, { scale: 1.15 }, 150, Easing.easeOutQuad);
+      await tween(cardVisual, { scale: 1.0, alpha: 0 }, 150, Easing.easeInQuad);
+    })(),
+  ]);
 
   overlay.removeChild(target);
+  overlay.removeChild(cardVisual);
   target.destroy();
+  cardVisual.destroy();
 }
 
 /**
@@ -134,27 +291,41 @@ async function animateCardJunked(event: GameEvent, app: Application): Promise<vo
 
 /**
  * Animation: Card Drawn
- * Brief highlight glow in the hand area
+ * Card slides from deck to hand with glow effect
  */
-async function animateCardDrawn(_event: GameEvent, app: Application): Promise<void> {
+async function animateCardDrawn(event: GameEvent, app: Application): Promise<void> {
   const overlay = getOverlay(app);
-  const { playerId } = _event.data as { playerId?: string };
+  const data = event.data as { playerId?: string };
 
-  // Position depends on which player drew
-  // Bottom player = local, top = opponent (simplified)
-  const y = playerId === 'player1' ? app.screen.height - 100 : 100;
-  const x = app.screen.width / 2;
+  // Calculate start position (deck - off screen right)
+  const fromPos = getCardPosition(
+    { type: 'card_drawn', data: { ...data, position: 'deck' } },
+    app
+  );
 
-  // Create a temporary target for the glow effect
-  const target = new Graphics();
-  target.rect(x - 40, y - 20, 80, 40);
-  target.fill({ color: 0x000000, alpha: 0 });
-  overlay.addChild(target);
+  // Calculate end position (hand)
+  const toPos = getCardPosition(
+    { type: 'card_drawn', data: { ...data, position: 'hand' } },
+    app
+  );
 
-  await glowPulse(overlay, target, COLORS.water, 1, 200);
+  // Slide card from deck to hand
+  await Promise.all([
+    slideCard(overlay, fromPos.x, fromPos.y, toPos.x, toPos.y, COLORS.personCard, 600),
+    (async () => {
+      await delay(500);
+      // Create a temporary target for the glow effect at destination
+      const target = new Graphics();
+      target.rect(toPos.x - 40, toPos.y - 20, 80, 40);
+      target.fill({ color: 0x000000, alpha: 0 });
+      overlay.addChild(target);
 
-  overlay.removeChild(target);
-  target.destroy();
+      await glowPulse(overlay, target, COLORS.water, 1, 200);
+
+      overlay.removeChild(target);
+      target.destroy();
+    })(),
+  ]);
 }
 
 /**

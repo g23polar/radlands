@@ -118,7 +118,6 @@ export async function flash(
   times: number = 3,
   duration: number = 100
 ): Promise<void> {
-  const { Graphics } = await import('pixi.js');
   const bounds = target.getBounds();
   const overlay = new Graphics();
 
@@ -147,8 +146,7 @@ export async function particleBurst(
   radius: number = 50,
   duration: number = 500
 ): Promise<void> {
-  const { Graphics } = await import('pixi.js');
-  const particles: InstanceType<typeof Graphics>[] = [];
+  const particles: Graphics[] = [];
 
   for (let i = 0; i < count; i++) {
     const particle = new Graphics();
@@ -185,7 +183,6 @@ export async function glowPulse(
   pulses: number = 2,
   duration: number = 300
 ): Promise<void> {
-  const { Graphics } = await import('pixi.js');
   const bounds = target.getBounds();
   const glow = new Graphics();
 
@@ -262,12 +259,11 @@ export async function ripple(
   maxRadius: number = 60,
   duration: number = 600
 ): Promise<void> {
-  const { Graphics } = await import('pixi.js');
-  const ripple = new Graphics();
+  const rippleGraphic = new Graphics();
 
-  ripple.circle(x, y, 0);
-  ripple.stroke({ color, width: 3, alpha: 0.8 });
-  parent.addChild(ripple);
+  rippleGraphic.circle(x, y, 0);
+  rippleGraphic.stroke({ color, width: 3, alpha: 0.8 });
+  parent.addChild(rippleGraphic);
 
   let elapsed = 0;
   const ticker = Ticker.shared;
@@ -279,9 +275,9 @@ export async function ripple(
       const radius = maxRadius * Easing.easeOutCubic(progress);
       const alpha = 0.8 * (1 - progress);
 
-      ripple.clear();
-      ripple.circle(x, y, radius);
-      ripple.stroke({ color, width: 3, alpha });
+      rippleGraphic.clear();
+      rippleGraphic.circle(x, y, radius);
+      rippleGraphic.stroke({ color, width: 3, alpha });
 
       if (progress >= 1) {
         ticker.remove(update);
@@ -291,8 +287,8 @@ export async function ripple(
     ticker.add(update);
   });
 
-  parent.removeChild(ripple);
-  ripple.destroy();
+  parent.removeChild(rippleGraphic);
+  rippleGraphic.destroy();
 }
 
 /**
@@ -304,7 +300,6 @@ export async function screenFlash(
   duration: number = 200,
   maxAlpha: number = 0.3
 ): Promise<void> {
-  const { Graphics } = await import('pixi.js');
   const flash = new Graphics();
 
   flash.rect(0, 0, parent.width || 1200, parent.height || 800);
@@ -316,4 +311,83 @@ export async function screenFlash(
 
   parent.removeChild(flash);
   flash.destroy();
+}
+
+/**
+ * Shake effect (for damage)
+ */
+export async function shake(
+  target: TweenableObject,
+  intensity: number = 5,
+  duration: number = 300
+): Promise<void> {
+  const originalX = target.x;
+  const originalY = target.y;
+  const shakeCount = 6;
+  const shakeTime = duration / shakeCount;
+
+  for (let i = 0; i < shakeCount; i++) {
+    const offsetX = (Math.random() - 0.5) * intensity * 2;
+    const offsetY = (Math.random() - 0.5) * intensity * 2;
+    await tween(target, { x: originalX + offsetX, y: originalY + offsetY }, shakeTime / 2, Easing.linear);
+  }
+
+  // Return to original position
+  await tween(target, { x: originalX, y: originalY }, shakeTime / 2, Easing.easeOutQuad);
+}
+
+/**
+ * Shrink and fade effect (for destroy)
+ */
+export async function shrinkAndFade(
+  target: TweenableObject,
+  duration: number = 400
+): Promise<void> {
+  await tween(
+    target,
+    { scaleX: 0.1, scaleY: 0.1, alpha: 0, rotation: 0.5 },
+    duration,
+    Easing.easeInCubic
+  );
+}
+
+/**
+ * Slide a card from one position to another
+ */
+export async function slideCard(
+  parent: Container,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  cardColor: number,
+  duration: number = 400
+): Promise<void> {
+  const card = new Graphics();
+
+  // Draw a simple card representation
+  card.roundRect(-40, -55, 80, 110, 6);
+  card.fill({ color: cardColor });
+  card.stroke({ color: 0x4a4a4a, width: 1 });
+  card.position.set(fromX, fromY);
+  card.alpha = 0.9;
+
+  parent.addChild(card);
+
+  // Slide to destination with slight arc
+  const midY = (fromY + toY) / 2 - 30; // Slight upward arc
+
+  await Promise.all([
+    tween(card, { x: toX, y: midY }, duration / 2, Easing.easeOutQuad),
+    (async () => {
+      await delay(duration / 2);
+      await tween(card, { y: toY }, duration / 2, Easing.easeInQuad);
+    })(),
+  ]);
+
+  // Fade out at destination
+  await tween(card, { alpha: 0, scale: 0.8 }, 100, Easing.easeInQuad);
+
+  parent.removeChild(card);
+  card.destroy();
 }

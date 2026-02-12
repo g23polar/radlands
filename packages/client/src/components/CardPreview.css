@@ -1,0 +1,180 @@
+.card-preview {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  min-width: 300px;
+  max-width: 400px;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.98) 0%, rgba(22, 33, 62, 0.98) 100%);
+  border: 2px solid var(--color-rust-light);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.card-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid rgba(212, 165, 116, 0.3);
+}
+
+.card-preview-name {
+  font-size: var(--font-size-xl);
+  color: var(--color-rust-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.card-preview-cost {
+  font-size: var(--font-size-base);
+  color: var(--color-warning);
+  font-weight: bold;
+  padding: 4px 8px;
+  background: rgba(205, 133, 63, 0.2);
+  border-radius: var(--border-radius-sm);
+}
+
+.card-preview-type {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  font-weight: bold;
+  border-radius: var(--border-radius-sm);
+  letter-spacing: 0.5px;
+}
+
+.type-badge.type-person {
+  background: rgba(45, 74, 111, 0.8);
+  color: #85a5d0;
+  border: 1px solid #85a5d0;
+}
+
+.type-badge.type-event {
+  background: rgba(74, 45, 111, 0.8);
+  color: #b085d0;
+  border: 1px solid #b085d0;
+}
+
+.type-badge.type-camp {
+  background: rgba(139, 69, 19, 0.8);
+  color: var(--color-rust-light);
+  border: 1px solid var(--color-rust-light);
+}
+
+.card-preview-junk {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  background: rgba(74, 74, 74, 0.4);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-metal);
+}
+
+.card-preview-abilities {
+  margin-bottom: var(--spacing-md);
+}
+
+.card-preview-abilities h4 {
+  font-size: var(--font-size-sm);
+  color: var(--color-rust);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 var(--spacing-xs);
+}
+
+.ability-item {
+  padding: var(--spacing-sm);
+  background: rgba(15, 52, 96, 0.3);
+  border-left: 3px solid var(--color-rust);
+  margin-bottom: var(--spacing-xs);
+  border-radius: var(--border-radius-sm);
+}
+
+.ability-cost {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  font-weight: bold;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.ability-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.card-preview-traits {
+  margin-bottom: var(--spacing-md);
+}
+
+.card-preview-traits h4 {
+  font-size: var(--font-size-sm);
+  color: var(--color-rust);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 var(--spacing-xs);
+}
+
+.trait-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.trait-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: var(--font-size-xs);
+  color: var(--color-metal-light);
+  background: rgba(74, 74, 74, 0.5);
+  border: 1px solid var(--color-metal);
+  border-radius: var(--border-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-preview-flavor {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid rgba(212, 165, 116, 0.2);
+  line-height: 1.5;
+}
+
+.card-preview-status {
+  margin-top: var(--spacing-sm);
+  padding: 4px 8px;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  font-weight: bold;
+  border-radius: var(--border-radius-sm);
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.card-preview-status.damaged {
+  background: rgba(255, 68, 68, 0.3);
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+}
+
+.card-preview-status.ready {
+  background: rgba(68, 255, 68, 0.3);
+  color: #44ff44;
+  border: 1px solid #44ff44;
+}

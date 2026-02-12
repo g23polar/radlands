@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
 import { useGameStore } from '../stores/gameStore';
 import type { GameState, PlayerState, CardInstanceId } from '@radlands/core';
 import { getCard, getCardInstance } from '@radlands/core';
@@ -48,6 +48,7 @@ export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
   const appRef = useRef<Application | null>(null);
   const overlayRef = useRef<Container | null>(null);
   const animationQueueRef = useRef<AnimationQueue | null>(null);
+  const pulseTickerRef = useRef<Ticker | null>(null);
 
   const gameState = useGameStore((state) => state.gameState);
   const localPlayerId = useGameStore((state) => state.localPlayerId);
@@ -101,6 +102,10 @@ export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
     initApp();
 
     return () => {
+      if (pulseTickerRef.current) {
+        pulseTickerRef.current.destroy();
+        pulseTickerRef.current = null;
+      }
       if (appRef.current) {
         appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
@@ -115,7 +120,7 @@ export function GameBoard({ width = 1200, height = 800 }: GameBoardProps) {
     if (appRef.current && overlayRef.current) {
       renderGame(appRef.current, overlayRef.current, gameState, localPlayerId, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget);
     }
-  }, [gameState, localPlayerId, selectedCardId, actionMode, validColumns, validQueueSlots, validTargets]);
+  }, [gameState, localPlayerId, selectedCardId, selectCard, actionMode, validColumns, validQueueSlots, validTargets, selectColumn, selectQueueSlot, selectTarget]);
 
   // Process pending animation events
   useEffect(() => {
@@ -453,7 +458,7 @@ function drawCard(
   const cardContainer = new Container();
   cardContainer.position.set(x, y);
   cardContainer.eventMode = 'static';
-  cardContainer.cursor = 'pointer';
+  cardContainer.cursor = isInTargetMode && isValidTarget ? 'pointer' : 'default';
 
   // Click handler
   cardContainer.on('pointerdown', (e) => {
@@ -492,17 +497,59 @@ function drawCard(
   if (isInTargetMode && !isValidTarget) {
     const dim = new Graphics();
     dim.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, CARD.cornerRadius);
-    dim.fill({ color: 0x000000, alpha: 0.5 });
+    dim.fill({ color: 0x000000, alpha: 0.6 });
     cardContainer.addChild(dim);
   }
 
-  // Pulsing animation for valid targets
+  // Animated pulsing glow for valid targets
   if (isInTargetMode && isValidTarget) {
-    const pulse = new Graphics();
-    pulse.roundRect(-CARD.width / 2 - 3, -CARD.height / 2 - 3, CARD.width + 6, CARD.height + 6, CARD.cornerRadius + 2);
     const isFriendly = instance.ownerId === localPlayerId;
-    pulse.stroke({ color: isFriendly ? COLORS.validTarget : COLORS.targetHighlight, width: 2, alpha: 0.8 });
-    cardContainer.addChild(pulse);
+    const glowColor = isFriendly ? COLORS.validTarget : COLORS.targetHighlight;
+
+    // Outer glow that pulses
+    const outerGlow = new Graphics();
+    outerGlow.roundRect(-CARD.width / 2 - 4, -CARD.height / 2 - 4, CARD.width + 8, CARD.height + 8, CARD.cornerRadius + 2);
+    outerGlow.stroke({ color: glowColor, width: 3, alpha: 0.6 });
+    cardContainer.addChild(outerGlow);
+
+    // Inner glow (static)
+    const innerGlow = new Graphics();
+    innerGlow.roundRect(-CARD.width / 2 - 2, -CARD.height / 2 - 2, CARD.width + 4, CARD.height + 4, CARD.cornerRadius + 1);
+    innerGlow.stroke({ color: glowColor, width: 1, alpha: 0.8 });
+    cardContainer.addChild(innerGlow);
+
+    // Animate the outer glow with a pulsing effect
+    let pulseTime = 0;
+    const pulseTicker = new Ticker();
+    pulseTicker.add(() => {
+      pulseTime += 0.05;
+      const pulseScale = 1 + Math.sin(pulseTime) * 0.1;
+      const pulseAlpha = 0.4 + Math.sin(pulseTime) * 0.3;
+      outerGlow.scale.set(pulseScale);
+      outerGlow.alpha = pulseAlpha;
+    });
+    pulseTicker.start();
+
+    // Store ticker for cleanup
+    cardContainer.on('destroyed', () => {
+      pulseTicker.destroy();
+    });
+
+    // Hover effect - brighten on hover
+    let hoverGlow: Graphics | null = null;
+    cardContainer.on('pointerenter', () => {
+      hoverGlow = new Graphics();
+      hoverGlow.roundRect(-CARD.width / 2 - 6, -CARD.height / 2 - 6, CARD.width + 12, CARD.height + 12, CARD.cornerRadius + 3);
+      hoverGlow.stroke({ color: glowColor, width: 2, alpha: 0.9 });
+      cardContainer.addChild(hoverGlow);
+    });
+
+    cardContainer.on('pointerleave', () => {
+      if (hoverGlow) {
+        cardContainer.removeChild(hoverGlow);
+        hoverGlow = null;
+      }
+    });
   }
 
   // Damaged overlay
@@ -558,6 +605,24 @@ function drawCard(
 }
 
 /**
+ * Get icon for effect type
+ */
+function getEffectIcon(effectType: string): string {
+  switch (effectType) {
+    case 'damage': return '⚔';
+    case 'destroy': return '💥';
+    case 'restore': return '❤';
+    case 'draw': return '🃏';
+    case 'water': return '💧';
+    case 'punk': return '👤';
+    case 'raid': return '🔥';
+    case 'ready': return '⚡';
+    case 'unready': return '💤';
+    default: return '✦';
+  }
+}
+
+/**
  * Draw event queue for a player
  */
 function drawEventQueue(
@@ -573,20 +638,27 @@ function drawEventQueue(
   selectQueueSlot: (position: 0 | 1 | 2) => void
 ) {
   const queueTitle = new Text({
-    text: 'EVENTS',
+    text: 'EVENT QUEUE',
     style: new TextStyle({
-      fill: COLORS.textSecondary,
-      fontSize: 10,
+      fill: 0xd4a574, // Rust accent color
+      fontSize: 12,
       fontFamily: 'Courier New, monospace',
       fontWeight: 'bold',
     }),
   });
   queueTitle.anchor.set(0.5);
-  queueTitle.position.set(x, y - 40);
+  queueTitle.position.set(x, y - 50);
   container.addChild(queueTitle);
 
+  // Queue countdown labels and colors
+  const countdownLabels = ['RESOLVES NEXT', 'IN 2 TURNS', 'IN 3 TURNS'];
+  const countdownColors = [0xff6b6b, 0xffa500, 0xffd700]; // Red -> Orange -> Gold
+
   // Draw 3 queue slots vertically
-  const slotHeight = 50;
+  const slotHeight = 65;
+  const slotWidth = 90;
+  const slotDisplayHeight = 55;
+
   for (let i = 0; i < 3; i++) {
     const slot = player.eventQueue[i];
     if (!slot) continue;
@@ -602,12 +674,32 @@ function drawEventQueue(
         const slotContainer = new Container();
         slotContainer.position.set(x, slotY);
 
+        // Outer glow based on countdown
+        const glow = new Graphics();
+        glow.roundRect(-slotWidth / 2 - 3, -slotDisplayHeight / 2 - 3, slotWidth + 6, slotDisplayHeight + 6, 6);
+        glow.stroke({ color: countdownColors[i], width: 2, alpha: 0.4 });
+        slotContainer.addChild(glow);
+
         // Card background
         const bg = new Graphics();
-        bg.roundRect(-35, -20, 70, 40, 4);
+        bg.roundRect(-slotWidth / 2, -slotDisplayHeight / 2, slotWidth, slotDisplayHeight, 4);
         bg.fill({ color: COLORS.eventCard });
-        bg.stroke({ color: COLORS.cardBorder, width: 1 });
+        bg.stroke({ color: countdownColors[i], width: 2 });
         slotContainer.addChild(bg);
+
+        // Countdown label at top
+        const countdownText = new Text({
+          text: countdownLabels[i],
+          style: new TextStyle({
+            fill: countdownColors[i],
+            fontSize: 7,
+            fontFamily: 'Courier New, monospace',
+            fontWeight: 'bold',
+          }),
+        });
+        countdownText.anchor.set(0.5);
+        countdownText.position.set(0, -slotDisplayHeight / 2 + 8);
+        slotContainer.addChild(countdownText);
 
         // Card name
         const name = card?.name || '???';
@@ -615,36 +707,74 @@ function drawEventQueue(
           text: name,
           style: new TextStyle({
             fill: COLORS.text,
-            fontSize: 8,
+            fontSize: 9,
             fontFamily: 'Courier New, monospace',
+            fontWeight: 'bold',
             wordWrap: true,
-            wordWrapWidth: 60,
+            wordWrapWidth: slotWidth - 10,
             align: 'center',
           }),
         });
         nameText.anchor.set(0.5);
-        nameText.position.set(0, -8);
+        nameText.position.set(0, 0);
         slotContainer.addChild(nameText);
 
-        // Position number
-        const posText = new Text({
-          text: `${i}`,
-          style: new TextStyle({
-            fill: COLORS.textSecondary,
-            fontSize: 10,
-            fontFamily: 'Courier New, monospace',
-            fontWeight: 'bold',
-          }),
-        });
-        posText.anchor.set(0.5);
-        posText.position.set(0, 8);
-        slotContainer.addChild(posText);
+        // Effect preview (show primary effect type)
+        if (card && 'effects' in card && card.effects && card.effects.length > 0) {
+          const primaryEffect = card.effects[0];
+          if (primaryEffect) {
+            const effectIcon = getEffectIcon(primaryEffect.type);
+            const effectText = new Text({
+              text: effectIcon,
+              style: new TextStyle({
+                fill: 0xd4a574,
+                fontSize: 11,
+                fontFamily: 'Courier New, monospace',
+              }),
+            });
+            effectText.anchor.set(0.5);
+            effectText.position.set(-slotWidth / 2 + 12, slotDisplayHeight / 2 - 10);
+            slotContainer.addChild(effectText);
+          }
+        }
+
+        // Cost indicator
+        if (card && 'cost' in card) {
+          const costBg = new Graphics();
+          costBg.circle(slotWidth / 2 - 12, slotDisplayHeight / 2 - 10, 8);
+          costBg.fill({ color: COLORS.water, alpha: 0.8 });
+          slotContainer.addChild(costBg);
+
+          const costText = new Text({
+            text: `${card.cost}`,
+            style: new TextStyle({
+              fill: COLORS.text,
+              fontSize: 10,
+              fontFamily: 'Courier New, monospace',
+              fontWeight: 'bold',
+            }),
+          });
+          costText.anchor.set(0.5);
+          costText.position.set(slotWidth / 2 - 12, slotDisplayHeight / 2 - 10);
+          slotContainer.addChild(costText);
+        }
 
         container.addChild(slotContainer);
       }
     } else {
-      // Draw empty slot
-      drawQueueSlot(container, x, slotY, i, isLocalPlayer, actionMode, validQueueSlots, selectQueueSlot);
+      // Draw empty slot with enhanced visuals
+      drawQueueSlot(
+        container,
+        x,
+        slotY,
+        i,
+        isLocalPlayer,
+        actionMode,
+        validQueueSlots,
+        selectQueueSlot,
+        countdownLabels[i] || 'EMPTY',
+        countdownColors[i] || COLORS.textSecondary
+      );
     }
   }
 }
@@ -670,12 +800,48 @@ function drawColumnSlot(
     selectColumn(columnIndex as 0 | 1 | 2);
   });
 
-  // Slot background with pulsing border
+  // Slot background
   const bg = new Graphics();
   bg.roundRect(-CARD.width / 2, -CARD.height / 2, CARD.width, CARD.height, CARD.cornerRadius);
   bg.fill({ color: COLORS.emptySlot, alpha: 0.5 });
-  bg.stroke({ color: COLORS.validTarget, width: 3 });
+  bg.stroke({ color: COLORS.validTarget, width: 2 });
   slotContainer.addChild(bg);
+
+  // Animated pulsing glow
+  const outerGlow = new Graphics();
+  outerGlow.roundRect(-CARD.width / 2 - 3, -CARD.height / 2 - 3, CARD.width + 6, CARD.height + 6, CARD.cornerRadius + 2);
+  outerGlow.stroke({ color: COLORS.validTarget, width: 2, alpha: 0.6 });
+  slotContainer.addChild(outerGlow);
+
+  // Pulse animation
+  let pulseTime = 0;
+  const pulseTicker = new Ticker();
+  pulseTicker.add(() => {
+    pulseTime += 0.05;
+    const pulseAlpha = 0.3 + Math.sin(pulseTime) * 0.3;
+    outerGlow.alpha = pulseAlpha;
+  });
+  pulseTicker.start();
+
+  slotContainer.on('destroyed', () => {
+    pulseTicker.destroy();
+  });
+
+  // Hover effect
+  let hoverGlow: Graphics | null = null;
+  slotContainer.on('pointerenter', () => {
+    hoverGlow = new Graphics();
+    hoverGlow.roundRect(-CARD.width / 2 - 5, -CARD.height / 2 - 5, CARD.width + 10, CARD.height + 10, CARD.cornerRadius + 3);
+    hoverGlow.stroke({ color: COLORS.validTarget, width: 3, alpha: 0.9 });
+    slotContainer.addChild(hoverGlow);
+  });
+
+  slotContainer.on('pointerleave', () => {
+    if (hoverGlow) {
+      slotContainer.removeChild(hoverGlow);
+      hoverGlow = null;
+    }
+  });
 
   // Plus icon
   const plusText = new Text({
@@ -705,9 +871,13 @@ function drawQueueSlot(
   isLocalPlayer: boolean,
   actionMode: string,
   validQueueSlots: number[],
-  selectQueueSlot: (position: 0 | 1 | 2) => void
+  selectQueueSlot: (position: 0 | 1 | 2) => void,
+  countdownLabel: string,
+  countdownColor: number
 ) {
   const isValid = isLocalPlayer && actionMode === 'select_queue_slot' && validQueueSlots.includes(position);
+  const slotWidth = 90;
+  const slotDisplayHeight = 55;
 
   const slotContainer = new Container();
   slotContainer.position.set(x, y);
@@ -723,39 +893,79 @@ function drawQueueSlot(
     });
   }
 
+  // Outer glow
+  const glow = new Graphics();
+  glow.roundRect(-slotWidth / 2 - 3, -slotDisplayHeight / 2 - 3, slotWidth + 6, slotDisplayHeight + 6, 6);
+  glow.stroke({ color: isValid ? COLORS.validTarget : countdownColor, width: 2, alpha: isValid ? 0.6 : 0.2 });
+  slotContainer.addChild(glow);
+
   // Slot background
   const bg = new Graphics();
-  bg.roundRect(-35, -20, 70, 40, 4);
+  bg.roundRect(-slotWidth / 2, -slotDisplayHeight / 2, slotWidth, slotDisplayHeight, 4);
   bg.fill({ color: COLORS.emptySlot, alpha: isValid ? 0.5 : 0.2 });
-  bg.stroke({ color: isValid ? COLORS.validTarget : COLORS.cardBorder, width: isValid ? 3 : 1 });
+  bg.stroke({ color: isValid ? COLORS.validTarget : COLORS.cardBorder, width: isValid ? 2 : 1 });
   slotContainer.addChild(bg);
+
+  // Add animated glow for valid slots
+  if (isValid) {
+    // Pulse animation
+    let pulseTime = 0;
+    const pulseTicker = new Ticker();
+    pulseTicker.add(() => {
+      pulseTime += 0.05;
+      const pulseAlpha = 0.3 + Math.sin(pulseTime) * 0.3;
+      glow.alpha = pulseAlpha;
+    });
+    pulseTicker.start();
+
+    slotContainer.on('destroyed', () => {
+      pulseTicker.destroy();
+    });
+
+    // Hover effect
+    let hoverGlow: Graphics | null = null;
+    slotContainer.on('pointerenter', () => {
+      hoverGlow = new Graphics();
+      hoverGlow.roundRect(-slotWidth / 2 - 5, -slotDisplayHeight / 2 - 5, slotWidth + 10, slotDisplayHeight + 10, 7);
+      hoverGlow.stroke({ color: COLORS.validTarget, width: 2, alpha: 0.9 });
+      slotContainer.addChild(hoverGlow);
+    });
+
+    slotContainer.on('pointerleave', () => {
+      if (hoverGlow) {
+        slotContainer.removeChild(hoverGlow);
+        hoverGlow = null;
+      }
+    });
+  }
+
+  // Countdown label at top
+  const labelText = new Text({
+    text: countdownLabel,
+    style: new TextStyle({
+      fill: isValid ? COLORS.validTarget : countdownColor,
+      fontSize: 7,
+      fontFamily: 'Courier New, monospace',
+      fontWeight: 'bold',
+    }),
+  });
+  labelText.anchor.set(0.5);
+  labelText.position.set(0, -slotDisplayHeight / 2 + 8);
+  slotContainer.addChild(labelText);
 
   // Text
   const text = new Text({
     text: isValid ? '+' : 'EMPTY',
     style: new TextStyle({
       fill: isValid ? COLORS.validTarget : COLORS.textSecondary,
-      fontSize: isValid ? 24 : 8,
+      fontSize: isValid ? 24 : 10,
       fontFamily: 'Courier New, monospace',
       fontWeight: isValid ? 'bold' : 'normal',
     }),
   });
   text.anchor.set(0.5);
-  text.position.set(0, -4);
+  text.position.set(0, 5);
   slotContainer.addChild(text);
-
-  // Position number
-  const posText = new Text({
-    text: `${position}`,
-    style: new TextStyle({
-      fill: COLORS.textSecondary,
-      fontSize: 8,
-      fontFamily: 'Courier New, monospace',
-    }),
-  });
-  posText.anchor.set(0.5);
-  posText.position.set(0, 8);
-  slotContainer.addChild(posText);
 
   container.addChild(slotContainer);
 }

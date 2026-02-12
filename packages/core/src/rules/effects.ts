@@ -85,9 +85,19 @@ export function applyDamage(
   instance.isDamaged = true;
   instance.isReady = false; // Damaged cards are not ready
 
+  // Get card location for animation position data
+  const location = findCardLocation(state, targetId);
+
   events.push({
     type: 'card_damaged',
-    data: { instanceId: targetId, cardId: instance.cardId },
+    data: {
+      instanceId: targetId,
+      cardId: instance.cardId,
+      playerId: location?.playerId,
+      columnIndex: location?.columnIndex,
+      position: location?.type as 'camp' | 'person' | undefined,
+      personIndex: location?.type === 'person' ? location.personIndex : undefined,
+    },
   });
 
   return { state: newState, events, success: true };
@@ -147,6 +157,10 @@ export function destroyCard(
       instanceId: targetId,
       cardId: instance.cardId,
       cardType: card?.type,
+      playerId: location.playerId,
+      columnIndex: location.columnIndex,
+      position: location.type as 'camp' | 'person',
+      personIndex: location.type === 'person' ? location.personIndex : undefined,
     },
   });
 
@@ -175,9 +189,19 @@ export function restoreCard(
   instance.isDamaged = false;
   instance.isReady = false; // Restored cards are not ready
 
+  // Get card location for animation position data
+  const location = findCardLocation(state, targetId);
+
   events.push({
     type: 'card_restored',
-    data: { instanceId: targetId, cardId: instance.cardId },
+    data: {
+      instanceId: targetId,
+      cardId: instance.cardId,
+      playerId: location?.playerId,
+      columnIndex: location?.columnIndex,
+      position: location?.type as 'camp' | 'person' | undefined,
+      personIndex: location?.type === 'person' ? location.personIndex : undefined,
+    },
   });
 
   return { state: newState, events, success: true };

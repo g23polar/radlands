@@ -285,12 +285,40 @@ describe('Lobby API', () => {
         .expect(400);
     });
 
-    it('should handle database errors gracefully', async () => {
+    it('should handle database errors gracefully on create', async () => {
       // Close the database to simulate an error
       db.close();
 
       const response = await request(app)
         .post('/api/lobby/create')
+        .expect(500);
+
+      expect(response.body).toHaveProperty('error');
+
+      // Recreate database for cleanup
+      db = initDatabase(':memory:');
+    });
+
+    it('should handle database errors gracefully on join', async () => {
+      // Close the database to simulate an error
+      db.close();
+
+      const response = await request(app)
+        .get('/api/lobby/join/ABC123')
+        .expect(500);
+
+      expect(response.body).toHaveProperty('error');
+
+      // Recreate database for cleanup
+      db = initDatabase(':memory:');
+    });
+
+    it('should handle database errors gracefully on game lookup', async () => {
+      // Close the database to simulate an error
+      db.close();
+
+      const response = await request(app)
+        .get('/api/lobby/game/test-id')
         .expect(500);
 
       expect(response.body).toHaveProperty('error');

@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore, useTurnPhase, useMyPlayer, useIsMyTurn } from '../stores/gameStore';
 import { GameBoard } from '../pixi/GameBoard';
@@ -5,6 +6,7 @@ import { HandView } from './HandView';
 import { ActionPanel } from './ActionPanel';
 import { AudioControls } from './AudioControls';
 import { TurnTransition } from './TurnTransition';
+import { DropZones } from './DropZones';
 import { useContainerSize } from '../hooks/useContainerSize';
 import './GameScreen.css';
 
@@ -19,6 +21,21 @@ export function GameScreen() {
   const isMyTurn = useIsMyTurn();
   const performAction = useGameStore((state) => state.performAction);
   const [containerRef, { width, height }] = useContainerSize();
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  // Listen for drag events from HandView
+  React.useEffect(() => {
+    const handleDragStart = () => setIsDragging(true);
+    const handleDragEnd = () => setIsDragging(false);
+
+    window.addEventListener('card-drag-start', handleDragStart);
+    window.addEventListener('card-drag-end', handleDragEnd);
+
+    return () => {
+      window.removeEventListener('card-drag-start', handleDragStart);
+      window.removeEventListener('card-drag-end', handleDragEnd);
+    };
+  }, []);
 
   if (!gameState || !myPlayer) return null;
 
@@ -45,6 +62,9 @@ export function GameScreen() {
       <div className="game-board-container" ref={containerRef}>
         <GameBoard width={width} height={height} />
       </div>
+
+      {/* Drop Zones for Drag-and-Drop */}
+      <DropZones visible={isDragging} />
 
       {/* Turn Transition Overlay */}
       <TurnTransition />
